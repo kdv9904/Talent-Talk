@@ -5,22 +5,21 @@ export const protectRoute = [
   requireAuth(),
   async (req, res, next) => {
     try {
-      const clerkId = req.auth().userId;
-      console.log("Clerk ID from token:", clerkId);
-      
-      if (!clerkId) return res.status(401).json({ message: "Unauthorized - invalid token" });
+      const clerkId = req.auth()?.userId; // optional chaining
+      if (!clerkId) {
+        return res.status(401).json({ message: "Unauthorized - invalid token" });
+      }
 
-      // find user in db by clerk ID
       const user = await User.findOne({ clerkId });
+      if (!user) {
+        console.error("User not found in DB for Clerk ID:", clerkId);
+        return res.status(404).json({ message: "User not found" });
+      }
 
-      if (!user) return res.status(404).json({ message: "User not found" });
-      console.log("User from DB:", user);
-      // attach user to req
       req.user = user;
-
       next();
     } catch (error) {
-      console.error("Error in protectRoute middleware", error);
+      console.error("Error in protectRoute middleware:", error);
       res.status(500).json({ message: "Internal Server Error" });
     }
   },
