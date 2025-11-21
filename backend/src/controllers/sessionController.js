@@ -15,7 +15,7 @@ export async function createSession(req, res) {
     const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     // create session in db
-    const session = await Session.create({ problem, difficulty, host: userId, callId });
+    const session = await Session.create({ problem, difficulty, host: userId, callId, status: "active"});
 
     // create stream video call
     await streamClient.video.call("default", callId).getOrCreate({
@@ -58,11 +58,9 @@ export async function getActiveSessions(_, res) {
 
 export async function getMyRecentSessions(req, res) {
   try {
-    if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized: user not found" });
-    }
     const userId = req.user._id;
 
+    // get sessions where user is either host or participant
     const sessions = await Session.find({
       status: "completed",
       $or: [{ host: userId }, { participant: userId }],
@@ -72,7 +70,7 @@ export async function getMyRecentSessions(req, res) {
 
     res.status(200).json({ sessions });
   } catch (error) {
-    console.log("Error in getMyRecentSessions controller:", error);
+    console.log("Error in getMyRecentSessions controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -120,6 +118,9 @@ export async function joinSession(req, res) {
 
     const channel = chatClient.channel("messaging", session.callId);
     await channel.addMembers([clerkId]);
+    
+    await session.populate("host", "name profileImage email clerkId")
+             .populate("participant", "name profileImage email clerkId");
 
     res.status(200).json({ session });
   } catch (error) {
