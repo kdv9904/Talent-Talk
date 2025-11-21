@@ -58,9 +58,11 @@ export async function getActiveSessions(_, res) {
 
 export async function getMyRecentSessions(req, res) {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized: user not found" });
+    }
     const userId = req.user._id;
 
-    // get sessions where user is either host or participant
     const sessions = await Session.find({
       status: "completed",
       $or: [{ host: userId }, { participant: userId }],
@@ -70,7 +72,7 @@ export async function getMyRecentSessions(req, res) {
 
     res.status(200).json({ sessions });
   } catch (error) {
-    console.log("Error in getMyRecentSessions controller:", error.message);
+    console.log("Error in getMyRecentSessions controller:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
