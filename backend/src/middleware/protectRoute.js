@@ -7,7 +7,6 @@ export const protectRoute = [
     try {
       const clerkId = req.auth().userId;
       console.log("Clerk ID from token:", clerkId);
-      console.log("User from DB:", user);
       
       if (!clerkId) return res.status(401).json({ message: "Unauthorized - invalid token" });
 
@@ -15,7 +14,7 @@ export const protectRoute = [
       const user = await User.findOne({ clerkId });
 
       if (!user) return res.status(404).json({ message: "User not found" });
-
+      console.log("User from DB:", user);
       // attach user to req
       req.user = user;
 
