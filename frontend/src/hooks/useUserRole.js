@@ -12,7 +12,7 @@ export const useUserRole = () => {
       if (user) {
         try {
           console.log("Fetching role for user:", user.id); // DEBUG
-          const response = await fetch("http://localhost:4000/api/user/role", {
+          const response = await fetch("https://talent-talk.onrender.com/api/user/role", {
             credentials: 'include' // Important for cookies/sessions
           });
           const data = await response.json();
