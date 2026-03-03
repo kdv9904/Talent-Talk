@@ -178,6 +178,10 @@ app.use("/api/sessions", sessionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes); 
 
+app.get("/", (req, res) => {
+  res.status(200).json({ msg: "Talent Talk API is running" });
+});
+
 app.get("/health", (req, res) => {
   res.status(200).json({ msg: "api is up and running" });
 });
