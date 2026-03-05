@@ -10,20 +10,14 @@ export const protectRoute = [
       if (!clerkId) {
         return res.status(401).json({ message: "Unauthorized - Invalid token" });
       }
-      let user = await User.findOne({ clerkId });
 
-      if (!user) {
-        // Create new user with default role
-        user = await User.create({
-          clerkId,
-          name: req.auth().session.user.fullName || "User",
-          email: req.auth().session.user.primaryEmailAddress?.emailAddress || "",
-          profileImage: req.auth().session.user.imageUrl || "",
-          role: "user" // Default role
-        });
-      }
+      const user = await User.findOneAndUpdate(
+        { clerkId },
+        { $setOnInsert: { clerkId, name: "User", email: "", role: "user" } },
+        { upsert: true, new: true }
+      );
 
-      req.user = user; // attach DB user with role
+      req.user = user;
       next();
     } catch (error) {
       console.error("Error in protectRoute middleware:", error);
