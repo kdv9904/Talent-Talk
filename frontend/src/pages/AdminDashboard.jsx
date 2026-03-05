@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/clerk-react";
+import { useUser, useAuth } from "@clerk/clerk-react";
 import { useUserRole } from "../hooks/useUserRole";
 import Navbar from "../components/Navbar";
 import { Users, Shield, UserCheck, UserX, Loader2, Search } from "lucide-react";
@@ -11,6 +11,8 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [updatingUser, setUpdatingUser] = useState(null);
+  const { getToken } = useAuth();
+  
 
   // Use the correct API URL with port 4000
   const API_URL = "https://talent-talk.onrender.com";
@@ -19,9 +21,13 @@ function AdminDashboard() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/admin/users`, {
-          credentials: 'include' // Important for cookies/auth
-        });
+        const token = await getToken();
+const response = await fetch(`${API_URL}/api/admin/users`, {
+  headers: {
+    Authorization: `Bearer ${token}`
+  },
+  credentials: 'include'
+});
         
         console.log("Response status:", response.status); // Debug
         
@@ -49,14 +55,16 @@ function AdminDashboard() {
   const updateUserRole = async (userId, newRole) => {
     setUpdatingUser(userId);
     try {
-      const response = await fetch(`${API_URL}/api/admin/users/${userId}/role`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ role: newRole }),
-        credentials: 'include'
-      });
+      const token = await getToken();
+const response = await fetch(`${API_URL}/api/admin/users/${userId}/role`, {
+  method: "PATCH",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`
+  },
+  body: JSON.stringify({ role: newRole }),
+  credentials: 'include'
+});
 
       if (response.ok) {
         // Update local state
