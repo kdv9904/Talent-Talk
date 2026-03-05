@@ -32,4 +32,8 @@ export const sessionApi = {
     const response = await axiosInstance.get(`/chat/token`);
     return response.data;
   },
+  leaveSession: async (id) => {
+    const response = await axiosInstance.post(`/sessions/${id}/leave`);
+    return response.data;
+},
 };

@@ -12,7 +12,8 @@ import {
   joinSessionAsHR,
   grantTabSwitchPermission, // ADD THIS IMPORT
   logViolation,
-  checkTabSwitchPermission
+  checkTabSwitchPermission,
+  leaveSession 
 } from "../controllers/sessionController.js";
 import { requireHR } from "../middleware/roleMiddleware.js";
 
@@ -24,6 +25,7 @@ router.get("/active", protectRoute, getActiveSessions);
 router.get("/my-recent", protectRoute, getMyRecentSessions);
 router.get("/:id/security", protectRoute, getSessionSecurityConfig);
 router.get("/:id/tab-permission", protectRoute, checkTabSwitchPermission);
+router.post("/:id/leave", protectRoute, leaveSession);
 
 // HR specific routes
 router.get("/admin/all-sessions", protectRoute, requireHR, getAllSessions);

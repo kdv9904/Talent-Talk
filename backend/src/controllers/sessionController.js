@@ -574,3 +574,33 @@ export async function debugSession(req, res) {
     res.status(500).json({ message: "Debug failed" });
   }
 } 
+
+export async function leaveSession(req, res) {
+    try {
+        const { id } = req.params;
+        const userId = req.user._id;
+        const clerkId = req.user.clerkId;
+
+        const session = await Session.findById(id);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+
+        // Remove user from participants
+        session.participants = session.participants.filter(
+            p => p.user.toString() !== userId.toString()
+        );
+        await session.save();
+
+        // Remove from Stream chat
+        try {
+            const channel = chatClient.channel("messaging", session.callId);
+            await channel.removeMembers([clerkId]);
+        } catch (streamErr) {
+            console.error("Stream removeMembers error:", streamErr.message);
+        }
+
+        res.status(200).json({ success: true, message: "Left session successfully" });
+    } catch (error) {
+        console.log("Error in leaveSession:", error.message);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+}

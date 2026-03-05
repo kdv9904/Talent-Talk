@@ -334,7 +334,17 @@ useEffect(() => {
         </div>
 
         <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center">
-          <CallControls onLeave={() => navigate("/dashboard")} />
+          <CallControls onLeave={async () => {
+  try {
+    await fetch(`https://talent-talk.onrender.com/api/sessions/${sessionId}/leave`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+  } catch (err) {
+    console.error('Leave session error:', err);
+  }
+  navigate("/dashboard");
+}} />
         </div>
       </div>
 
