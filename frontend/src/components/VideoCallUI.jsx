@@ -50,7 +50,7 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
 
     setActionLoading(participantId);
     try {
-      const response = await fetch(`http://localhost:4000/api/sessions/${sessionId}/grant-permission`, {
+      const response = await fetch(`https://talent-talk.onrender.com/api/sessions/${sessionId}/grant-permission`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

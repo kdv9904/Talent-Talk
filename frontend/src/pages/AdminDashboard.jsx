@@ -13,7 +13,7 @@ function AdminDashboard() {
   const [updatingUser, setUpdatingUser] = useState(null);
 
   // Use the correct API URL with port 4000
-  const API_URL = "http://localhost:4000";
+  const API_URL = "https://talent-talk.onrender.com";
 
   // Fetch all users
   useEffect(() => {
