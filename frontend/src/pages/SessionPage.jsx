@@ -73,6 +73,7 @@ function SessionPage() {
   const isParticipant = session?.participants?.some(
     (p) => p.user?.clerkId === user?.id,
   );
+  const canAccessCall = isHost || isParticipant || isHR;
   const participantCount = session?.participants
     ? session.participants.length + 1
     : 1; // +1 for host
@@ -81,7 +82,7 @@ function SessionPage() {
   const canJoin = !isHost && !isParticipant && !isFull;
 
   const { call, channel, chatClient, isInitializingCall, streamClient } =
-    useStreamClient(session, loadingSession, isHost, isParticipant);
+    useStreamClient(session, loadingSession, isHost, isParticipant || isHR);
 
   // Add bot detection
   const { violations: botViolations } = useBotDetection(id, isHR);
