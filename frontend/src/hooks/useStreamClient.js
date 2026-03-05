@@ -16,6 +16,10 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
   const callIdRef = useRef(null);
 
   useEffect(() => {
+  sessionApi.getStreamToken().catch(() => {}); // warm up, ignore errors
+}, []);
+
+  useEffect(() => {
     let videoCall = null;
     let chatClientInstance = null;
 

@@ -1,13 +1,23 @@
-import { useUser,useAuth } from "@clerk/clerk-react";
+import { useUser, useAuth } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { useEndSession, useJoinSession, useSessionById } from "../hooks/useSessions";
+import {
+  useEndSession,
+  useJoinSession,
+  useSessionById,
+} from "../hooks/useSessions";
 import { PROBLEMS } from "../data/problems";
 import { executeCode } from "../lib/piston";
 import Navbar from "../components/Navbar";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { getDifficultyBadgeClass } from "../lib/utils";
-import { Loader2Icon, LogOutIcon, PhoneOffIcon, AlertTriangleIcon, UsersIcon } from "lucide-react";
+import {
+  Loader2Icon,
+  LogOutIcon,
+  PhoneOffIcon,
+  AlertTriangleIcon,
+  UsersIcon,
+} from "lucide-react";
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";
 import { useUserRole } from "../hooks/useUserRole";
@@ -27,74 +37,85 @@ function SessionPage() {
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const { getToken } = useAuth();
+  
 
   // Load tabSwitchCount from localStorage (persist across refresh)
   const [tabSwitchCount, setTabSwitchCount] = useState(() => {
     try {
-      const saved = typeof window !== "undefined" ? localStorage.getItem(`tabSwitch_${id}`) : null;
+      const saved =
+        typeof window !== "undefined"
+          ? localStorage.getItem(`tabSwitch_${id}`)
+          : null;
       return saved ? parseInt(saved, 10) : 0;
     } catch (error) {
-      console.error('Error parsing tab switch count from localStorage:', error);
+      console.error("Error parsing tab switch count from localStorage:", error);
       return 0;
     }
   });
   const [showTabWarning, setShowTabWarning] = useState(false);
-  
+
   // New state for tab switch permission
   const [hasTabSwitchPermission, setHasTabSwitchPermission] = useState(false);
 
-  const { data: sessionData, isLoading: loadingSession, refetch } = useSessionById(id);
+  const {
+    data: sessionData,
+    isLoading: loadingSession,
+    refetch,
+  } = useSessionById(id);
 
   const joinSessionMutation = useJoinSession();
   const endSessionMutation = useEndSession();
 
   const session = sessionData?.session;
-  
+
   // Updated participant logic for 4 participants
   const isHost = session?.host?.clerkId === user?.id;
-  const isParticipant = session?.participants?.some(p => p.user?.clerkId === user?.id);
-  const participantCount = session?.participants ? session.participants.length + 1 : 1; // +1 for host
+  const isParticipant = session?.participants?.some(
+    (p) => p.user?.clerkId === user?.id,
+  );
+  const participantCount = session?.participants
+    ? session.participants.length + 1
+    : 1; // +1 for host
   const maxParticipants = session?.maxParticipants || 4;
   const isFull = participantCount >= maxParticipants;
   const canJoin = !isHost && !isParticipant && !isFull;
 
-  const { call, channel, chatClient, isInitializingCall, streamClient } = useStreamClient(
-    session,
-    loadingSession,
-    isHost,
-    isParticipant
-  );
+  const { call, channel, chatClient, isInitializingCall, streamClient } =
+    useStreamClient(session, loadingSession, isHost, isParticipant);
 
   // Add bot detection
   const { violations: botViolations } = useBotDetection(id, isHR);
 
   // Check tab switch permission from backend - with real-time updates
   const checkTabSwitchPermission = async () => {
-  if (!session || !user || isHR || session.status !== "active") return;
-  try {
-    const token = await getToken(); // ✅ add token
-    const response = await fetch(`${API_BASE_URL}/sessions/${id}/tab-permission`, {
-      headers: { 
-        Authorization: `Bearer ${token}` // ✅
-      },
-      credentials: 'include'
-    });
-    if (response.ok) {
-      const data = await response.json();
-      if (data.hasPermission !== hasTabSwitchPermission) {
-        setHasTabSwitchPermission(data.hasPermission);
+    if (!session || !user || isHR || session.status !== "active") return;
+    try {
+      const token = await getToken(); // ✅ add token
+      const response = await fetch(
+        `${API_BASE_URL}/sessions/${id}/tab-permission`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // ✅
+          },
+          credentials: "include",
+        },
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data.hasPermission !== hasTabSwitchPermission) {
+          setHasTabSwitchPermission(data.hasPermission);
+        }
       }
+    } catch (error) {
+      console.error("Error checking tab switch permission:", error);
     }
-  } catch (error) {
-    console.error('Error checking tab switch permission:', error);
-  }
-};
+  };
   useEffect(() => {
-  if (!session || !user || isHR || session.status !== "active") return;
-  checkTabSwitchPermission();
-  const intervalId = setInterval(checkTabSwitchPermission, 3000);
-  return () => clearInterval(intervalId);
-}, [session?.status, id, isHR]);
+    if (!session || !user || isHR || session.status !== "active") return;
+    checkTabSwitchPermission();
+    const intervalId = setInterval(checkTabSwitchPermission, 3000);
+    return () => clearInterval(intervalId);
+  }, [session?.status, id, isHR]);
   // Sync localStorage changes across tabs (storage event)
   useEffect(() => {
     const onStorage = (e) => {
@@ -105,17 +126,25 @@ function SessionPage() {
           setTabSwitchCount(val);
         }
       } catch (error) {
-        console.error('Error parsing tab switch count from localStorage:', error);
+        console.error(
+          "Error parsing tab switch count from localStorage:",
+          error,
+        );
       }
     };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, [id]);
 
   // TAB SWITCHING DETECTION - ONLY FOR NON-HR USERS WITHOUT PERMISSION
   useEffect(() => {
     // Skip if user has permission, is HR, or session is not active
-    if (hasTabSwitchPermission || isHR || !session || session.status !== "active") {
+    if (
+      hasTabSwitchPermission ||
+      isHR ||
+      !session ||
+      session.status !== "active"
+    ) {
       return;
     }
 
@@ -129,7 +158,10 @@ function SessionPage() {
           try {
             localStorage.setItem(`tabSwitch_${id}`, String(newCount));
           } catch (error) {
-            console.error('Error saving tab switch count to localStorage:', error);
+            console.error(
+              "Error saving tab switch count to localStorage:",
+              error,
+            );
           }
 
           // UI
@@ -137,21 +169,23 @@ function SessionPage() {
 
           // server log (fire-and-forget)
           fetch(`${API_BASE_URL}/sessions/${id}/violation`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              type: 'tab_switch',
+              type: "tab_switch",
               userId: user?.id,
               count: newCount,
-              details: `Tab switch detected - count: ${newCount}`
-            })
+              details: `Tab switch detected - count: ${newCount}`,
+            }),
           }).catch(console.error);
 
           if (newCount >= 2) {
             // inform user then kick/redirect
             setTimeout(() => {
               try {
-                alert('❌ You have been removed from the session due to multiple tab switches.');
+                alert(
+                  "❌ You have been removed from the session due to multiple tab switches.",
+                );
               } catch (error) {
                 console.error(error);
               }
@@ -162,16 +196,19 @@ function SessionPage() {
               try {
                 localStorage.removeItem(`tabSwitch_${id}`);
               } catch (err) {
-                console.error('Error clearing tab switch count from localStorage:', err);
+                console.error(
+                  "Error clearing tab switch count from localStorage:",
+                  err,
+                );
               }
-              navigate('/dashboard');
+              navigate("/dashboard");
             }, 2000);
           } else {
             setTimeout(() => {
               try {
                 alert(`⚠️ Tab switching is not allowed! Warning ${newCount}/2`);
               } catch (e) {
-                console.error(e); 
+                console.error(e);
               }
             }, 100);
 
@@ -183,10 +220,10 @@ function SessionPage() {
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [isHR, session, id, user?.id, navigate, hasTabSwitchPermission]);
 
@@ -194,47 +231,57 @@ function SessionPage() {
   useEffect(() => {
     // Define event handlers outside so they're accessible in cleanup
     const handleCopy = (e) => {
-      const isFromEditor = e.target.closest('.monaco-editor') || e.target.closest('.CodeEditorPanel');
+      const isFromEditor =
+        e.target.closest(".monaco-editor") ||
+        e.target.closest(".CodeEditorPanel");
       if (!isFromEditor) {
         e.preventDefault();
         setTimeout(() => {
-          alert('❌ Copying disabled during session!');
+          alert("❌ Copying disabled during session!");
         }, 100);
       }
     };
 
     const handleCut = (e) => {
-      const isFromEditor = e.target.closest('.monaco-editor') || e.target.closest('.CodeEditorPanel');
+      const isFromEditor =
+        e.target.closest(".monaco-editor") ||
+        e.target.closest(".CodeEditorPanel");
       if (!isFromEditor) {
         e.preventDefault();
         setTimeout(() => {
-          alert('❌ Cutting disabled during session!');
+          alert("❌ Cutting disabled during session!");
         }, 100);
       }
     };
 
     const handlePaste = (e) => {
-      const isFromEditor = e.target.closest('.monaco-editor') || e.target.closest('.CodeEditorPanel');
+      const isFromEditor =
+        e.target.closest(".monaco-editor") ||
+        e.target.closest(".CodeEditorPanel");
       if (!isFromEditor) {
         e.preventDefault();
         setTimeout(() => {
-          alert('❌ Pasting disabled during session!');
+          alert("❌ Pasting disabled during session!");
         }, 100);
       }
     };
 
     const handleContextMenu = (e) => {
-      const isFromEditor = e.target.closest('.monaco-editor') || e.target.closest('.CodeEditorPanel');
+      const isFromEditor =
+        e.target.closest(".monaco-editor") ||
+        e.target.closest(".CodeEditorPanel");
       if (!isFromEditor) {
         e.preventDefault();
         setTimeout(() => {
-          alert('❌ Right-click disabled during session!');
+          alert("❌ Right-click disabled during session!");
         }, 100);
       }
     };
 
     const handleSelectStart = (e) => {
-      const isFromEditor = e.target.closest('.monaco-editor') || e.target.closest('.CodeEditorPanel');
+      const isFromEditor =
+        e.target.closest(".monaco-editor") ||
+        e.target.closest(".CodeEditorPanel");
       if (!isFromEditor) {
         e.preventDefault();
       }
@@ -243,36 +290,41 @@ function SessionPage() {
     // Cleanup function - always runs on unmount
     const cleanupRestrictions = () => {
       // Remove event listeners
-      document.removeEventListener('copy', handleCopy);
-      document.removeEventListener('cut', handleCut);
-      document.removeEventListener('paste', handlePaste);
-      document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('selectstart', handleSelectStart);
+      document.removeEventListener("copy", handleCopy);
+      document.removeEventListener("cut", handleCut);
+      document.removeEventListener("paste", handlePaste);
+      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("selectstart", handleSelectStart);
 
       // Remove styles
-      const styleElement = document.getElementById('smart-restrictions');
+      const styleElement = document.getElementById("smart-restrictions");
       if (styleElement) {
         styleElement.remove();
       }
     };
 
     // Skip restrictions if user has permission or is HR
-    if (hasTabSwitchPermission || isHR || !session || session.status !== "active") {
+    if (
+      hasTabSwitchPermission ||
+      isHR ||
+      !session ||
+      session.status !== "active"
+    ) {
       // Clean up any existing restrictions that might be left over
       cleanupRestrictions();
       return cleanupRestrictions;
     }
 
     // Add event listeners
-    document.addEventListener('copy', handleCopy);
-    document.addEventListener('cut', handleCut);
-    document.addEventListener('paste', handlePaste);
-    document.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('selectstart', handleSelectStart);
+    document.addEventListener("copy", handleCopy);
+    document.addEventListener("cut", handleCut);
+    document.addEventListener("paste", handlePaste);
+    document.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("selectstart", handleSelectStart);
 
     // Smart CSS - disable selection everywhere EXCEPT code editor
-    const style = document.createElement('style');
-    style.id = 'smart-restrictions';
+    const style = document.createElement("style");
+    style.id = "smart-restrictions";
     style.textContent = `
       /* Disable selection everywhere by default */
       * {
@@ -315,22 +367,25 @@ function SessionPage() {
     const overrideClipboard = () => {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         const originalWriteText = navigator.clipboard.writeText;
-        navigator.clipboard.writeText = function(text) {
+        navigator.clipboard.writeText = function (text) {
           // Check if the call is coming from the editor
           const activeElement = document.activeElement;
-          const isFromEditor = activeElement && (activeElement.closest('.monaco-editor') || activeElement.closest('.CodeEditorPanel'));
-          
+          const isFromEditor =
+            activeElement &&
+            (activeElement.closest(".monaco-editor") ||
+              activeElement.closest(".CodeEditorPanel"));
+
           if (!isFromEditor) {
             setTimeout(() => {
-              alert('❌ Clipboard access disabled during session!');
+              alert("❌ Clipboard access disabled during session!");
             }, 100);
-            return Promise.reject(new Error('Clipboard disabled'));
+            return Promise.reject(new Error("Clipboard disabled"));
           }
           return originalWriteText.call(this, text);
         };
       }
     };
-    
+
     overrideClipboard();
 
     // Return cleanup function
@@ -343,7 +398,9 @@ function SessionPage() {
     : null;
 
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
-  const [code, setCode] = useState(problemData?.starterCode?.[selectedLanguage] || "");
+  const [code, setCode] = useState(
+    problemData?.starterCode?.[selectedLanguage] || "",
+  );
 
   // auto-join session if user is not already a participant and not the host
   useEffect(() => {
@@ -359,8 +416,13 @@ function SessionPage() {
 
     if (session.status === "completed") {
       // clear stored tab-switch count for this session
-      try { localStorage.removeItem(`tabSwitch_${id}`); } catch (error) {
-          console.error('Error clearing tab switch count from localStorage:', error);
+      try {
+        localStorage.removeItem(`tabSwitch_${id}`);
+      } catch (error) {
+        console.error(
+          "Error clearing tab switch count from localStorage:",
+          error,
+        );
       }
       navigate("/dashboard");
     }
@@ -391,12 +453,23 @@ function SessionPage() {
   };
 
   const handleEndSession = () => {
-    if (confirm("Are you sure you want to end this session? All participants will be notified.")) {
+    if (
+      confirm(
+        "Are you sure you want to end this session? All participants will be notified.",
+      )
+    ) {
       // clear persistent count for this session
-      try { localStorage.removeItem(`tabSwitch_${id}`); } catch (error) {
-          console.error('Error clearing tab switch count from localStorage:', error);
+      try {
+        localStorage.removeItem(`tabSwitch_${id}`);
+      } catch (error) {
+        console.error(
+          "Error clearing tab switch count from localStorage:",
+          error,
+        );
       }
-      endSessionMutation.mutate(id, { onSuccess: () => navigate("/dashboard") });
+      endSessionMutation.mutate(id, {
+        onSuccess: () => navigate("/dashboard"),
+      });
     }
   };
 
@@ -417,7 +490,8 @@ function SessionPage() {
       {showTabWarning && !isHR && !hasTabSwitchPermission && (
         <div className="bg-warning text-warning-content p-3 text-center font-semibold flex items-center justify-center gap-2">
           <AlertTriangleIcon className="w-5 h-5" />
-          Warning {tabSwitchCount}/2: Tab switching is not allowed during sessions!
+          Warning {tabSwitchCount}/2: Tab switching is not allowed during
+          sessions!
           <AlertTriangleIcon className="w-5 h-5" />
         </div>
       )}
@@ -438,33 +512,46 @@ function SessionPage() {
                           {session?.problem || "Loading..."}
                         </h1>
                         {problemData?.category && (
-                          <p className="text-base-content/60 mt-1">{problemData.category}</p>
+                          <p className="text-base-content/60 mt-1">
+                            {problemData.category}
+                          </p>
                         )}
                         <div className="flex items-center gap-2 mt-2 text-base-content/60">
                           <UsersIcon className="w-4 h-4" />
                           <span>
                             Host: {session?.host?.name || "Loading..."} •{" "}
                             {participantCount}/{maxParticipants} participants
-                            {isFull && <span className="ml-2 text-error">• FULL</span>}
+                            {isFull && (
+                              <span className="ml-2 text-error">• FULL</span>
+                            )}
                           </span>
                         </div>
                         {/* Show participant list */}
-                        {session?.participants && session.participants.length > 0 && (
-                          <div className="mt-2 text-sm">
-                            <span className="text-base-content/60">Participants: </span>
-                            {session.participants.map((p, index) => (
-                              <span key={p.user?._id || index} className="text-base-content/80">
-                                {p.user?.name}{index < session.participants.length - 1 ? ', ' : ''}
+                        {session?.participants &&
+                          session.participants.length > 0 && (
+                            <div className="mt-2 text-sm">
+                              <span className="text-base-content/60">
+                                Participants:{" "}
                               </span>
-                            ))}
-                          </div>
-                        )}
+                              {session.participants.map((p, index) => (
+                                <span
+                                  key={p.user?._id || index}
+                                  className="text-base-content/80"
+                                >
+                                  {p.user?.name}
+                                  {index < session.participants.length - 1
+                                    ? ", "
+                                    : ""}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                       </div>
 
                       <div className="flex items-center gap-3">
                         <span
                           className={`badge badge-lg ${getDifficultyBadgeClass(
-                            session?.difficulty
+                            session?.difficulty,
                           )}`}
                         >
                           {session?.difficulty?.slice(0, 1).toUpperCase() +
@@ -485,10 +572,14 @@ function SessionPage() {
                           </button>
                         )}
                         {session?.status === "completed" && (
-                          <span className="badge badge-ghost badge-lg">Completed</span>
+                          <span className="badge badge-ghost badge-lg">
+                            Completed
+                          </span>
                         )}
                         {canJoin && (
-                          <span className="badge badge-success badge-sm">Join Available</span>
+                          <span className="badge badge-success badge-sm">
+                            Join Available
+                          </span>
                         )}
                       </div>
                     </div>
@@ -498,9 +589,13 @@ function SessionPage() {
                     {/* problem desc */}
                     {problemData?.description && (
                       <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
-                        <h2 className="text-xl font-bold mb-4 text-base-content">Description</h2>
+                        <h2 className="text-xl font-bold mb-4 text-base-content">
+                          Description
+                        </h2>
                         <div className="space-y-3 text-base leading-relaxed">
-                          <p className="text-base-content/90">{problemData.description.text}</p>
+                          <p className="text-base-content/90">
+                            {problemData.description.text}
+                          </p>
                           {problemData.description.notes?.map((note, idx) => (
                             <p key={idx} className="text-base-content/90">
                               {note}
@@ -511,59 +606,71 @@ function SessionPage() {
                     )}
 
                     {/* examples section */}
-                    {problemData?.examples && problemData.examples.length > 0 && (
-                      <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
-                        <h2 className="text-xl font-bold mb-4 text-base-content">Examples</h2>
+                    {problemData?.examples &&
+                      problemData.examples.length > 0 && (
+                        <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
+                          <h2 className="text-xl font-bold mb-4 text-base-content">
+                            Examples
+                          </h2>
 
-                        <div className="space-y-4">
-                          {problemData.examples.map((example, idx) => (
-                            <div key={idx}>
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="badge badge-sm">{idx + 1}</span>
-                                <p className="font-semibold text-base-content">Example {idx + 1}</p>
-                              </div>
-                              <div className="bg-base-200 rounded-lg p-4 font-mono text-sm space-y-1.5">
-                                <div className="flex gap-2">
-                                  <span className="text-primary font-bold min-w-[70px]">
-                                    Input:
+                          <div className="space-y-4">
+                            {problemData.examples.map((example, idx) => (
+                              <div key={idx}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="badge badge-sm">
+                                    {idx + 1}
                                   </span>
-                                  <span>{example.input}</span>
+                                  <p className="font-semibold text-base-content">
+                                    Example {idx + 1}
+                                  </p>
                                 </div>
-                                <div className="flex gap-2">
-                                  <span className="text-secondary font-bold min-w-[70px]">
-                                    Output:
-                                  </span>
-                                  <span>{example.output}</span>
-                                </div>
-                                {example.explanation && (
-                                  <div className="pt-2 border-t border-base-300 mt-2">
-                                    <span className="text-base-content/60 font-sans text-xs">
-                                      <span className="font-semibold">Explanation:</span>{" "}
-                                      {example.explanation}
+                                <div className="bg-base-200 rounded-lg p-4 font-mono text-sm space-y-1.5">
+                                  <div className="flex gap-2">
+                                    <span className="text-primary font-bold min-w-[70px]">
+                                      Input:
                                     </span>
+                                    <span>{example.input}</span>
                                   </div>
-                                )}
+                                  <div className="flex gap-2">
+                                    <span className="text-secondary font-bold min-w-[70px]">
+                                      Output:
+                                    </span>
+                                    <span>{example.output}</span>
+                                  </div>
+                                  {example.explanation && (
+                                    <div className="pt-2 border-t border-base-300 mt-2">
+                                      <span className="text-base-content/60 font-sans text-xs">
+                                        <span className="font-semibold">
+                                          Explanation:
+                                        </span>{" "}
+                                        {example.explanation}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     {/* Constraints */}
-                    {problemData?.constraints && problemData.constraints.length > 0 && (
-                      <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
-                        <h2 className="text-xl font-bold mb-4 text-base-content">Constraints</h2>
-                        <ul className="space-y-2 text-base-content/90">
-                          {problemData.constraints.map((constraint, idx) => (
-                            <li key={idx} className="flex gap-2">
-                              <span className="text-primary">•</span>
-                              <code className="text-sm">{constraint}</code>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    {problemData?.constraints &&
+                      problemData.constraints.length > 0 && (
+                        <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
+                          <h2 className="text-xl font-bold mb-4 text-base-content">
+                            Constraints
+                          </h2>
+                          <ul className="space-y-2 text-base-content/90">
+                            {problemData.constraints.map((constraint, idx) => (
+                              <li key={idx} className="flex gap-2">
+                                <span className="text-primary">•</span>
+                                <code className="text-sm">{constraint}</code>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                   </div>
                 </div>
               </Panel>
@@ -606,6 +713,9 @@ function SessionPage() {
                   <div className="text-center">
                     <Loader2Icon className="w-12 h-12 mx-auto animate-spin text-primary mb-4" />
                     <p className="text-lg">Connecting to video call...</p>
+                    <p className="text-sm text-base-content/50 mt-2">
+                      This may take up to 30 seconds on first load
+                    </p>
                   </div>
                 </div>
               ) : !streamClient || !call ? (
@@ -616,7 +726,9 @@ function SessionPage() {
                         <PhoneOffIcon className="w-12 h-12 text-error" />
                       </div>
                       <h2 className="card-title text-2xl">Connection Failed</h2>
-                      <p className="text-base-content/70">Unable to connect to the video call</p>
+                      <p className="text-base-content/70">
+                        Unable to connect to the video call
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -624,15 +736,15 @@ function SessionPage() {
                 <div className="h-full">
                   <StreamVideo client={streamClient}>
                     <StreamCall call={call}>
-                      <VideoCallUI 
-                        chatClient={chatClient} 
-                        channel={channel} 
+                      <VideoCallUI
+                        chatClient={chatClient}
+                        channel={channel}
                         isHR={isHR}
                         sessionId={id}
                         participantCount={participantCount}
                         maxParticipants={maxParticipants}
                         hasTabSwitchPermission={hasTabSwitchPermission}
-                        session={session} 
+                        session={session}
                       />
                     </StreamCall>
                   </StreamVideo>
