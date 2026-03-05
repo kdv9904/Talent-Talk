@@ -261,25 +261,32 @@ export async function joinSession(req, res) {
         }
 
         // Check if user is already a participant
-        const isAlreadyParticipant = session.participants.some(p => p.user.toString() === userId.toString());
+        const isAlreadyParticipant = session.participants.some(
+            p => p.user.toString() === userId.toString()
+        );
         if (isAlreadyParticipant) {
             return res.status(400).json({ message: "You are already in this session" });
         }
 
         // HR can join any session without counting towards participant limit
         if (userRole === "hr" || userRole === "admin") {
-            const channel = chatClient.channel("messaging", session.callId);
-            await channel.addMembers([clerkId]);
-            
-            await session.populate("host", "name profileImage email clerkId role");
-            await session.populate("participants.user", "name profileImage email clerkId role");
+            // ✅ wrap Stream in try/catch so it doesn't crash the request
+            try {
+                const channel = chatClient.channel("messaging", session.callId);
+                await channel.addMembers([clerkId]);
+            } catch (streamErr) {
+                console.error("Stream addMembers error (HR):", streamErr.message);
+            }
 
-            return res.status(200).json({ 
-                session,
+            // ✅ single populate query instead of double populate
+            const populatedSession = await Session.findById(id)
+                .populate("host", "name profileImage email clerkId role")
+                .populate("participants.user", "name profileImage email clerkId role");
+
+            return res.status(200).json({
+                session: populatedSession,
                 joinedAs: "hr_observer",
-                security: {
-                    allowTabSwitch: true
-                }
+                security: { allowTabSwitch: true }
             });
         }
 
@@ -293,26 +300,32 @@ export async function joinSession(req, res) {
             return res.status(400).json({ message: "Host cannot join their own session as participant" });
         }
 
-        // Add user to participants array with tabSwitchAllowed undefined by default
+        // Add user to participants
         session.participants.push({
             user: userId,
             role: "coder",
-            tabSwitchAllowed: undefined // Explicitly set as undefined
+            tabSwitchAllowed: undefined
         });
         await session.save();
 
-        const channel = chatClient.channel("messaging", session.callId);
-        await channel.addMembers([clerkId]);
-        
-        await session.populate("host", "name profileImage email clerkId role");
-        await session.populate("participants.user", "name profileImage email clerkId role");
+        // ✅ wrap Stream in try/catch
+        try {
+            const channel = chatClient.channel("messaging", session.callId);
+            await channel.addMembers([clerkId]);
+        } catch (streamErr) {
+            console.error("Stream addMembers error:", streamErr.message);
+        }
 
-        res.status(200).json({ 
-            session,
-            security: {
-                allowTabSwitch: false // Regular users cannot switch tabs by default
-            }
+        // ✅ single populate query
+        const populatedSession = await Session.findById(id)
+            .populate("host", "name profileImage email clerkId role")
+            .populate("participants.user", "name profileImage email clerkId role");
+
+        res.status(200).json({
+            session: populatedSession,
+            security: { allowTabSwitch: false }
         });
+
     } catch (error) {
         console.log("Error in joinSession controller:", error.message);
         res.status(500).json({ message: "Internal Server Error" });
