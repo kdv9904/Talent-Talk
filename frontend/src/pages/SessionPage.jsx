@@ -26,6 +26,7 @@ function SessionPage() {
   const { isHR, userRole } = useUserRole();
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
+  const { getToken } = useAuth();
 
   // Load tabSwitchCount from localStorage (persist across refresh)
   const [tabSwitchCount, setTabSwitchCount] = useState(() => {
@@ -69,57 +70,31 @@ function SessionPage() {
 
   // Check tab switch permission from backend - with real-time updates
   const checkTabSwitchPermission = async () => {
-    if (!session || !user || isHR || session.status !== "active") return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/sessions/${id}/tab-permission`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const newPermission = data.hasPermission;
-        
-        // Only update state if permission actually changed
-        if (newPermission !== hasTabSwitchPermission) {
-          setHasTabSwitchPermission(newPermission);
-        }
-      } else {
-        console.error('Failed to check tab switch permission');
-        setHasTabSwitchPermission(false);
+  if (!session || !user || isHR || session.status !== "active") return;
+  try {
+    const token = await getToken(); // ✅ add token
+    const response = await fetch(`${API_BASE_URL}/sessions/${id}/tab-permission`, {
+      headers: { 
+        Authorization: `Bearer ${token}` // ✅
+      },
+      credentials: 'include'
+    });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.hasPermission !== hasTabSwitchPermission) {
+        setHasTabSwitchPermission(data.hasPermission);
       }
-    } catch (error) {
-      console.error('Error checking tab switch permission:', error);
-      setHasTabSwitchPermission(false);
     }
-  };
-
-  // Set up periodic permission checks
+  } catch (error) {
+    console.error('Error checking tab switch permission:', error);
+  }
+};
   useEffect(() => {
-    if (!session || !user || isHR || session.status !== "active") return;
-
-    // Check immediately
-    checkTabSwitchPermission();
-
-    // Set up interval to check every 3 seconds for real-time updates
-    const intervalId = setInterval(checkTabSwitchPermission, 3000);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [session, id, user, isHR]);
-
-  // Also check permission when session data updates
-  useEffect(() => {
-    if (session && session.status === "active" && !isHR) {
-      checkTabSwitchPermission();
-    }
-  }, [session]);
-
+  if (!session || !user || isHR || session.status !== "active") return;
+  checkTabSwitchPermission();
+  const intervalId = setInterval(checkTabSwitchPermission, 3000);
+  return () => clearInterval(intervalId);
+}, [session?.status, id, isHR]);
   // Sync localStorage changes across tabs (storage event)
   useEffect(() => {
     const onStorage = (e) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { StreamChat } from "stream-chat";
 import toast from "react-hot-toast";
 import { initializeStreamClient, disconnectStreamClient } from "../lib/stream";
@@ -11,6 +11,10 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
   const [channel, setChannel] = useState(null);
   const [isInitializingCall, setIsInitializingCall] = useState(true);
 
+  // ✅ use ref to prevent re-init on every session refetch
+  const initializedRef = useRef(false);
+  const callIdRef = useRef(null);
+
   useEffect(() => {
     let videoCall = null;
     let chatClientInstance = null;
@@ -20,43 +24,54 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
       if (!isHost && !isParticipant) return;
       if (session.status === "completed") return;
 
+      // ✅ prevent re-initialization if callId hasn't changed
+      if (initializedRef.current && callIdRef.current === session.callId) return;
+
+      initializedRef.current = true;
+      callIdRef.current = session.callId;
+
       try {
+        // ✅ fetch token once
         const { token, userId, userName, userImage } = await sessionApi.getStreamToken();
 
+        // ✅ initialize video client
         const client = await initializeStreamClient(
-          {
-            id: userId,
-            name: userName,
-            image: userImage,
-          },
+          { id: userId, name: userName, image: userImage },
           token
         );
-
         setStreamClient(client);
 
+        // ✅ run video join + chat connect in PARALLEL instead of sequential
         videoCall = client.call("default", session.callId);
-        await videoCall.join({ create: true });
-        setCall(videoCall);
 
         const apiKey = import.meta.env.VITE_STREAM_API_KEY;
         chatClientInstance = StreamChat.getInstance(apiKey);
 
-        await chatClientInstance.connectUser(
-          {
-            id: userId,
-            name: userName,
-            image: userImage,
-          },
-          token
-        );
+        await Promise.all([
+          // join video call
+          videoCall.join({ create: true }),
+
+          // connect chat user
+          chatClientInstance.userID
+            ? Promise.resolve() // already connected, skip
+            : chatClientInstance.connectUser(
+                { id: userId, name: userName, image: userImage },
+                token
+              ),
+        ]);
+
+        setCall(videoCall);
         setChatClient(chatClientInstance);
 
+        // watch chat channel
         const chatChannel = chatClientInstance.channel("messaging", session.callId);
         await chatChannel.watch();
         setChannel(chatChannel);
+
       } catch (error) {
         toast.error("Failed to join video call");
         console.error("Error init call", error);
+        initializedRef.current = false; // allow retry on error
       } finally {
         setIsInitializingCall(false);
       }
@@ -64,9 +79,7 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
 
     if (session && !loadingSession) initCall();
 
-    // cleanup - performance reasons
     return () => {
-      // iife
       (async () => {
         try {
           if (videoCall) await videoCall.leave();
@@ -77,15 +90,10 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
         }
       })();
     };
-  }, [session, loadingSession, isHost, isParticipant]);
+  }, [session?.callId, session?.status, isHost, isParticipant, loadingSession]); 
+  // ✅ use session?.callId instead of full session object
 
-  return {
-    streamClient,
-    call,
-    chatClient,
-    channel,
-    isInitializingCall,
-  };
+  return { streamClient, call, chatClient, channel, isInitializingCall };
 }
 
 export default useStreamClient;

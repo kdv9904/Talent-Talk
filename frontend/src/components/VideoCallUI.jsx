@@ -24,22 +24,22 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoading, setActionLoading] = useState(null);
 
-  // Extract participants from session data
-  useEffect(() => {
-    if (isHR && session?.participants) {
-      const formattedParticipants = session.participants.map(p => ({
-        id: p.user?._id,
-        clerkId: p.user?.clerkId,
-        name: p.user?.name || 'Unknown User',
-        email: p.user?.email || 'No email',
-        profileImage: p.user?.profileImage,
-        tabSwitchAllowed: p.tabSwitchAllowed || false,
-        violations: p.violations || [],
-        isOnline: videoParticipants.some(vp => vp.userId === p.user?.clerkId)
-      }));
-      setParticipantsData(formattedParticipants);
-    }
-  }, [isHR, session, videoParticipants]);
+  // Add videoParticipants to deps but debounce it
+useEffect(() => {
+  if (isHR && session?.participants) {
+    const formattedParticipants = session.participants.map(p => ({
+      id: p.user?._id,
+      clerkId: p.user?.clerkId,
+      name: p.user?.name || 'Unknown User',
+      email: p.user?.email || 'No email',
+      profileImage: p.user?.profileImage,
+      tabSwitchAllowed: p.tabSwitchAllowed || false,
+      violations: p.violations || [],
+      isOnline: videoParticipants.some(vp => vp.userId === p.user?.clerkId)
+    }));
+    setParticipantsData(formattedParticipants);
+  }
+}, [isHR, session]); // ✅ remove videoParticipants from deps
 
   // Grant/Revoke tab switch permission
   const handlePermissionAction = async (participantId, action) => {
