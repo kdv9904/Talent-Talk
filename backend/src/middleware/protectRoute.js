@@ -1,4 +1,3 @@
-// middleware/protectRoute.js
 import { requireAuth } from "@clerk/express";
 import User from "../models/User.js";
 
@@ -11,8 +10,6 @@ export const protectRoute = [
       if (!clerkId) {
         return res.status(401).json({ message: "Unauthorized - Invalid token" });
       }
-
-      // Check user in DB - create if doesn't exist (for new signups)
       let user = await User.findOne({ clerkId });
 
       if (!user) {

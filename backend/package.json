@@ -21,6 +21,7 @@
     "interview": "file:..",
     "mongoose": "^8.19.1",
     "stream-chat": "^9.24.0",
+    "svix": "^1.86.0",
     "Talent-Talk": "file:..",
     "ws": "^8.18.3"
   },

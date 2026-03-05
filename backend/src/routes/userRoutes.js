@@ -1,4 +1,3 @@
-// routes/userRoutes.js
 import express from "express";
 import { protectRoute } from "../middleware/protectRoute.js";
 import User from "../models/User.js";

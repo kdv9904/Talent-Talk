@@ -5,6 +5,7 @@ import { serve } from "inngest/express";
 import { clerkMiddleware } from "@clerk/express";
 import http from "http";
 import { WebSocketServer } from "ws";
+import { Webhook } from 'svix';
 
 import { ENV } from "./lib/env.js";
 import { connectDB } from "./lib/db.js";
@@ -216,6 +217,38 @@ app.get("/api/ws-info", (req, res) => {
     timestamp: new Date().toISOString()
   };
   res.status(200).json(info);
+});
+
+app.post('/api/clerk-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+  
+  const svix_id        = req.headers['svix-id'];
+  const svix_timestamp = req.headers['svix-timestamp'];
+  const svix_signature = req.headers['svix-signature'];
+
+  if (!svix_id || !svix_timestamp || !svix_signature) {
+    return res.status(400).json({ error: 'Missing svix headers' });
+  }
+
+  try {
+    const wh = new Webhook(WEBHOOK_SECRET);
+    const evt = wh.verify(req.body, {
+      'svix-id': svix_id,
+      'svix-timestamp': svix_timestamp,
+      'svix-signature': svix_signature,
+    });
+
+    // Forward to Inngest
+    await inngest.send({
+      name: `clerk/${evt.type}`, 
+      data: evt.data,
+    });
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Webhook verification failed:', err);
+    res.status(400).json({ error: 'Invalid webhook signature' });
+  }
 });
 
 const startServer = async () => {
