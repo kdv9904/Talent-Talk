@@ -1,4 +1,6 @@
-import { useUser } from "@clerk/clerk-react";
+import { useEffect } from "react";
+import axiosInstance from "./lib/axios";
+import { useUser,useAuth } from "@clerk/clerk-react";
 import { Navigate, Route, Routes } from "react-router";
 import HomePage from "./pages/HomePage";
 
@@ -11,6 +13,18 @@ import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   const { isSignedIn, isLoaded } = useUser();
+  const { getToken } = useAuth();
+
+useEffect(() => {
+  const interceptor = axiosInstance.interceptors.request.use(async (config) => {
+    const token = await getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+  return () => axiosInstance.interceptors.request.eject(interceptor);
+}, [getToken]);
 
   // this will get rid of the flickering effect
   if (!isLoaded) return null;
