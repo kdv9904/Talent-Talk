@@ -1,6 +1,6 @@
 // Piston API is a service for code execution
 
-const PISTON_API = "https://emkc.org/api/v1/piston";
+const PISTON_API = "https://piston.rocks/api/v2";
 
 const LANGUAGE_VERSIONS = {
   javascript: { language: "javascript", version: "18.15.0" },
