@@ -26,7 +26,7 @@ import { useBotDetection } from "../hooks/useBotDetection";
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
-import AIFeedbackModal from "../components/AiFeedbackmodal";
+import AIFeedbackModal from "../components/AIFeedbackModal";
 import { sessionApi } from "../api/sessions";
 
 function SessionPage() {
