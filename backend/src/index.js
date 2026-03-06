@@ -224,7 +224,7 @@ app.post('/api/execute', protectRoute, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Code execution failed' });
   }
-});1
+});
 
 
 app.get("/", (req, res) => {
