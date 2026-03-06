@@ -26,6 +26,8 @@ import { useBotDetection } from "../hooks/useBotDetection";
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
+import AIFeedbackModal from "../components/AIFeedbackModal";
+import { sessionApi } from "../api/sessions";
 
 function SessionPage() {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -37,6 +39,9 @@ function SessionPage() {
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const { getToken } = useAuth();
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+const [aiFeedback, setAiFeedback] = useState(null);
+const [feedbackLoading, setFeedbackLoading] = useState(false);
   
 
   // Load tabSwitchCount from localStorage (persist across refresh)
@@ -453,26 +458,30 @@ function SessionPage() {
     setIsRunning(false);
   };
 
-  const handleEndSession = () => {
-    if (
-      confirm(
-        "Are you sure you want to end this session? All participants will be notified.",
-      )
-    ) {
-      // clear persistent count for this session
-      try {
-        localStorage.removeItem(`tabSwitch_${id}`);
-      } catch (error) {
-        console.error(
-          "Error clearing tab switch count from localStorage:",
-          error,
-        );
-      }
-      endSessionMutation.mutate(id, {
-        onSuccess: () => navigate("/dashboard"),
-      });
-    }
-  };
+  const handleEndSession = async () => {
+  if (!confirm("End this session and get AI feedback on your code?")) return;
+  
+  setShowFeedbackModal(true);
+  setFeedbackLoading(true);
+  
+  try {
+    const result = await sessionApi.getAIFeedback(id, {
+      code,
+      language: selectedLanguage,
+      problem: session?.problem
+    });
+    setAiFeedback(result.feedback);
+  } catch (err) {
+    setAiFeedback(null);
+  } finally {
+    setFeedbackLoading(false);
+  }
+};
+
+const confirmEndSession = () => {
+  try { localStorage.removeItem(`tabSwitch_${id}`); } catch {}
+  endSessionMutation.mutate(id, { onSuccess: () => navigate("/dashboard") });
+};
 
   return (
     <div className="h-screen bg-base-100 flex flex-col">
@@ -755,6 +764,13 @@ function SessionPage() {
           </Panel>
         </PanelGroup>
       </div>
+      <AIFeedbackModal
+  isOpen={showFeedbackModal}
+  onClose={() => setShowFeedbackModal(false)}
+  feedback={aiFeedback}
+  isLoading={feedbackLoading}
+  onConfirmEnd={confirmEndSession}
+/>
     </div>
   );
 }

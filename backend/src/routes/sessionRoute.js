@@ -13,7 +13,8 @@ import {
   grantTabSwitchPermission, // ADD THIS IMPORT
   logViolation,
   checkTabSwitchPermission,
-  leaveSession 
+  leaveSession,
+  getAIFeedback 
 } from "../controllers/sessionController.js";
 import { requireHR } from "../middleware/roleMiddleware.js";
 
@@ -37,4 +38,5 @@ router.get("/:id", protectRoute, getSessionById);
 router.post("/:id/join", protectRoute, joinSession);
 router.post("/:id/end", protectRoute, endSession);
 router.post("/:id/violation", protectRoute, logViolation);
+router.post("/:id/feedback", protectRoute, getAIFeedback);
 export default router; 

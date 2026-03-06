@@ -604,3 +604,85 @@ export async function leaveSession(req, res) {
         res.status(500).json({ message: "Internal Server Error" });
     }
 }
+
+// Add this function to your existing sessionController.js
+
+export async function getAIFeedback(req, res) {
+    try {
+        const { id } = req.params;
+        const { code, language, problem } = req.body;
+
+        if (!code?.trim()) {
+            return res.status(400).json({ message: 'Code is required' });
+        }
+
+        const apiKey = process.env.GROQ_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({ message: 'GROQ_API_KEY not set' });
+        }
+
+        const prompt = `You are an expert code reviewer analyzing a solution for a coding interview problem.
+
+Problem: "${problem}"
+Language: ${language}
+
+Code submitted:
+\`\`\`${language}
+${code}
+\`\`\`
+
+Analyze this code and respond ONLY with a raw JSON object. No markdown, no backticks, no explanation. Start directly with { and end with }.
+
+{"verdict":"Excellent"|"Good"|"Needs Improvement"|"Incomplete","timeComplexity":"O(?)","spaceComplexity":"O(?)","strengths":["strength1","strength2"],"improvements":["improvement1","improvement2"],"overallFeedback":"2-3 sentence summary of the solution quality and approach"}`;
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a precise code reviewer. You always respond with raw JSON only — no markdown, no backticks, no explanation.'
+                    },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.3,
+                max_tokens: 1024,
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error('Groq API error:', data);
+            return res.status(500).json({ message: data?.error?.message || 'Groq API error' });
+        }
+
+        const raw = data?.choices?.[0]?.message?.content?.trim() || '{}';
+
+        const cleaned = raw
+            .replace(/```json/gi, '')
+            .replace(/```/g, '')
+            .replace(/^[^{]*(\{)/, '$1')
+            .replace(/\}[^}]*$/, '}')
+            .trim();
+
+        let feedback;
+        try {
+            feedback = JSON.parse(cleaned);
+        } catch {
+            console.error('JSON parse failed:', cleaned);
+            return res.status(500).json({ message: 'Failed to parse feedback response' });
+        }
+
+        return res.json({ feedback });
+
+    } catch (error) {
+        console.error('AI feedback error:', error.message);
+        return res.status(500).json({ message: 'Failed to generate feedback' });
+    }
+}

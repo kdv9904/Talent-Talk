@@ -36,4 +36,8 @@ export const sessionApi = {
     const response = await axiosInstance.post(`/sessions/${id}/leave`);
     return response.data;
 },
+getAIFeedback: async (id, data) => {
+  const response = await axiosInstance.post(`/sessions/${id}/feedback`, data);
+  return response.data;
+},
 };
