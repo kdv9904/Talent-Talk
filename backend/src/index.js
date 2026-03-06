@@ -16,6 +16,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import sessionRoutes from "./routes/sessionRoute.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import { protectRoute } from "./middleware/protectRoute.js";
 
 const app = express();
 app.post('/api/clerk-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -254,6 +255,19 @@ app.get("/api/ws-info", (req, res) => {
   res.status(200).json(info);
 });
 
+app.post('/api/execute', protectRoute, async (req, res) => {
+  try {
+    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Code execution failed' });
+  }
+});
 
 const startServer = async () => {
   try {
