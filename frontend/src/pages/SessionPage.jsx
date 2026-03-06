@@ -174,16 +174,21 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
           setShowTabWarning(true);
 
           // server log (fire-and-forget)
-          fetch(`${API_BASE_URL}/sessions/${id}/violation`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "tab_switch",
-              userId: user?.id,
-              count: newCount,
-              details: `Tab switch detected - count: ${newCount}`,
-            }),
-          }).catch(console.error);
+          getToken().then(token => {
+  fetch(`${API_BASE_URL}/sessions/${id}/violation`, {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}` // ✅
+    },
+    body: JSON.stringify({
+      type: "tab_switch",
+      userId: user?.id,
+      count: newCount,
+      details: `Tab switch detected - count: ${newCount}`
+    })
+  }).catch(console.error);
+});
 
           if (newCount >= 2) {
             // inform user then kick/redirect
