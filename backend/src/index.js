@@ -211,6 +211,22 @@ app.use("/api/sessions", sessionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes); 
 
+app.post('/api/execute', protectRoute, async (req, res) => {
+  try {
+    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+     console.log('Piston response:', JSON.stringify(data));
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Code execution failed' });
+  }
+});1
+
+
 app.get("/", (req, res) => {
   res.status(200).json({ msg: "Talent Talk API is running" });
 });
@@ -253,21 +269,6 @@ app.get("/api/ws-info", (req, res) => {
     timestamp: new Date().toISOString()
   };
   res.status(200).json(info);
-});
-
-app.post('/api/execute', protectRoute, async (req, res) => {
-  try {
-    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body)
-    });
-    const data = await response.json();
-     console.log('Piston response:', JSON.stringify(data));
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Code execution failed' });
-  }
 });
 
 const startServer = async () => {

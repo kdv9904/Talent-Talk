@@ -13,31 +13,25 @@ const LANGUAGE_VERSIONS = {
  * @param {string} code - source code to executed
  * @returns {Promise<{success:boolean, output?:string, error?: string}>}
  */
-export async function executeCode(language, code) {
+export async function executeCode(language, code, getToken) { // ✅ add getToken param
   try {
     const languageConfig = LANGUAGE_VERSIONS[language];
-
     if (!languageConfig) {
-      return {
-        success: false,
-        error: `Unsupported language: ${language}`,
-      };
+      return { success: false, error: `Unsupported language: ${language}` };
     }
+
+    const token = await getToken(); // ✅ get auth token
 
     const response = await fetch(`${PISTON_API}/execute`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}` // ✅ add token
       },
       body: JSON.stringify({
         language: languageConfig.language,
         version: languageConfig.version,
-        files: [
-          {
-            name: `main.${getFileExtension(language)}`,
-            content: code,
-          },
-        ],
+        files: [{ name: `main.${getFileExtension(language)}`, content: code }],
       }),
     });
 

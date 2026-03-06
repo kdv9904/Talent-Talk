@@ -458,7 +458,7 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
     setIsRunning(true);
     setOutput(null);
 
-    const result = await executeCode(selectedLanguage, code);
+    const result = await executeCode(selectedLanguage, code, getToken);
     setOutput(result);
     setIsRunning(false);
   };
