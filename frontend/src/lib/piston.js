@@ -50,6 +50,13 @@ export async function executeCode(language, code) {
 
     const data = await response.json();
 
+    if (!data.run) {
+  return {
+    success: false,
+    error: data.error || data.message || "Code execution failed",
+  };
+}
+
     const output = data.run.output || "";
     const stderr = data.run.stderr || "";
 

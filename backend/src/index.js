@@ -263,6 +263,7 @@ app.post('/api/execute', protectRoute, async (req, res) => {
       body: JSON.stringify(req.body)
     });
     const data = await response.json();
+     console.log('Piston response:', JSON.stringify(data));
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Code execution failed' });
