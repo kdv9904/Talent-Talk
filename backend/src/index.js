@@ -228,17 +228,17 @@ app.post('/api/execute', protectRoute, async (req, res) => {
 }`;
     }
 
-    const submitResponse = await fetch('https://ce.judge0.com/submissions?base64_encoded=false&wait=true', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        language_id: languageId,
-        source_code: finalCode,
-        stdin: req.body.stdin || '',
-      }),
-    });
+    const submitResponse = await fetch('https://ce.judge0.com/submissions?base64_encoded=true&wait=true', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    language_id: languageId,
+    source_code: Buffer.from(finalCode).toString('base64'),
+    stdin: Buffer.from(req.body.stdin || '').toString('base64'),
+  }),
+});
 
     if (!submitResponse.ok) {
       const errText = await submitResponse.text();
@@ -250,15 +250,19 @@ app.post('/api/execute', protectRoute, async (req, res) => {
     console.log('Judge0 response:', JSON.stringify(result));
 
     res.json({
-      run: {
-        output: result.stdout || '',
-        stderr: result.stderr || result.compile_output || '',
-        code: result.exit_code ?? 0,
-        signal: null,
-      },
-      language,
-      version: req.body.version || '',
-    });
+  run: {
+    output: result.stdout ? Buffer.from(result.stdout, 'base64').toString('utf-8') : '',
+    stderr: result.stderr 
+      ? Buffer.from(result.stderr, 'base64').toString('utf-8') 
+      : result.compile_output 
+        ? Buffer.from(result.compile_output, 'base64').toString('utf-8') 
+        : '',
+    code: result.exit_code ?? 0,
+    signal: null,
+  },
+  language,
+  version: req.body.version || '',
+});
 
   } catch (err) {
     console.error('Execute route error:', err);
