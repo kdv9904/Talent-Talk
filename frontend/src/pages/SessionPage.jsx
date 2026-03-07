@@ -752,15 +752,17 @@ const confirmEndSession = () => {
                   <StreamVideo client={streamClient}>
                     <StreamCall call={call}>
                       <VideoCallUI
-                        chatClient={chatClient}
-                        channel={channel}
-                        isHR={isHR}
-                        sessionId={id}
-                        participantCount={participantCount}
-                        maxParticipants={maxParticipants}
-                        hasTabSwitchPermission={hasTabSwitchPermission}
-                        session={session}
-                      />
+  chatClient={chatClient}
+  channel={channel}
+  isHR={isHR}
+  sessionId={id}
+  participantCount={participantCount}
+  maxParticipants={maxParticipants}
+  hasTabSwitchPermission={hasTabSwitchPermission}
+  session={session}
+  code={code}
+  language={selectedLanguage}
+/>
                     </StreamCall>
                   </StreamVideo>
                 </div>

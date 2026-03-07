@@ -8,11 +8,13 @@ import { Loader2Icon, MessageSquareIcon, UsersIcon, XIcon, ShieldIcon, UnlockIco
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Channel, Chat, MessageInput, MessageList, Thread, Window } from "stream-chat-react";
+import { sessionApi } from "../api/sessions";
+import AIFeedbackModal from "./AIFeedbackModal";
 
 import "@stream-io/video-react-sdk/dist/css/styles.css";
 import "stream-chat-react/dist/css/v2/index.css";
 
-function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, maxParticipants, hasTabSwitchPermission, session }) {
+function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, maxParticipants, hasTabSwitchPermission, session, code, language }) {
   const navigate = useNavigate();
   const { useCallCallingState, useParticipants } = useCallStateHooks();
   const callingState = useCallCallingState();
@@ -20,28 +22,78 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isManagingPermissions, setIsManagingPermissions] = useState(false);
   const [participantsData, setParticipantsData] = useState([]);
-  const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoading, setActionLoading] = useState(null);
 
-  // Add videoParticipants to deps but debounce it
-useEffect(() => {
-  if (isHR && session?.participants) {
-    const formattedParticipants = session.participants.map(p => ({
-      id: p.user?._id,
-      clerkId: p.user?.clerkId,
-      name: p.user?.name || 'Unknown User',
-      email: p.user?.email || 'No email',
-      profileImage: p.user?.profileImage,
-      tabSwitchAllowed: p.tabSwitchAllowed || false,
-      violations: p.violations || [],
-      isOnline: videoParticipants.some(vp => vp.userId === p.user?.clerkId)
-    }));
-    setParticipantsData(formattedParticipants);
-  }
-}, [isHR, session]); // ✅ remove videoParticipants from deps
+  // AI Feedback state for participants
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
-  // Grant/Revoke tab switch permission
+  useEffect(() => {
+    if (isHR && session?.participants) {
+      const formattedParticipants = session.participants.map(p => ({
+        id: p.user?._id,
+        clerkId: p.user?.clerkId,
+        name: p.user?.name || 'Unknown User',
+        email: p.user?.email || 'No email',
+        profileImage: p.user?.profileImage,
+        tabSwitchAllowed: p.tabSwitchAllowed || false,
+        violations: p.violations || [],
+        isOnline: videoParticipants.some(vp => vp.userId === p.user?.clerkId)
+      }));
+      setParticipantsData(formattedParticipants);
+    }
+  }, [isHR, session]);
+
+  // Handle leave — show AI feedback first, then navigate
+  const handleLeave = async () => {
+    // HR just leaves directly, no feedback needed
+    if (isHR) {
+      try {
+        await fetch(`https://talent-talk.onrender.com/api/sessions/${sessionId}/leave`, {
+          method: 'POST',
+          credentials: 'include'
+        });
+      } catch (err) {
+        console.error('Leave session error:', err);
+      }
+      navigate("/dashboard");
+      return;
+    }
+
+    // Participant: show AI feedback modal first
+    setShowFeedbackModal(true);
+    setFeedbackLoading(true);
+
+    try {
+      const result = await sessionApi.getAIFeedback(sessionId, {
+        code,
+        language,
+        problem: session?.problem,
+      });
+      setAiFeedback(result.feedback);
+    } catch (err) {
+      console.error('AI feedback error:', err);
+      setAiFeedback(null);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  // Called when user clicks "Leave Session" inside the modal
+  const confirmLeave = async () => {
+    try {
+      await fetch(`https://talent-talk.onrender.com/api/sessions/${sessionId}/leave`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (err) {
+      console.error('Leave session error:', err);
+    }
+    navigate("/dashboard");
+  };
+
   const handlePermissionAction = async (participantId, action) => {
     if (!participantId) {
       alert('Error: Invalid participant ID');
@@ -61,16 +113,12 @@ useEffect(() => {
       });
       
       if (response.ok) {
-        const data = await response.json();
-        
-        // Update local state
         setParticipantsData(prev => prev.map(p => 
           p.id === participantId 
             ? { ...p, tabSwitchAllowed: action }
             : p
         ));
 
-        // Send notification in chat
         if (channel) {
           const participant = participantsData.find(p => p.id === participantId);
           await channel.sendMessage({
@@ -91,7 +139,6 @@ useEffect(() => {
     }
   };
 
-  // Bulk permission actions
   const handleBulkPermission = async (action) => {
     if (!confirm(`Are you sure you want to ${action ? 'grant' : 'revoke'} tab switch permission for all participants?`)) {
       return;
@@ -99,7 +146,6 @@ useEffect(() => {
 
     setActionLoading('bulk');
     try {
-      // Process each participant sequentially to avoid rate limiting
       for (const participant of participantsData) {
         await handlePermissionAction(participant.id, action);
       }
@@ -144,7 +190,6 @@ useEffect(() => {
           </div>
           
           <div className="flex items-center gap-2">
-            {/* HR PERMISSION CONTROLS */}
             {isHR && (
               <button
                 onClick={() => setIsManagingPermissions(!isManagingPermissions)}
@@ -190,7 +235,6 @@ useEffect(() => {
               </div>
             </div>
             
-            {/* Search and Bulk Actions */}
             <div className="space-y-3">
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -229,7 +273,6 @@ useEffect(() => {
                 </button>
               </div>
 
-              {/* Participants List */}
               <div className="max-h-60 overflow-y-auto space-y-2">
                 {participantsData.length === 0 ? (
                   <div className="text-center py-4 text-warning-content/70">
@@ -313,7 +356,6 @@ useEffect(() => {
                 )}
               </div>
 
-              {/* Debug Information for HR */}
               <div className="bg-base-300 rounded p-2 mt-2">
                 <details className="text-xs">
                   <summary className="cursor-pointer">Debug Info</summary>
@@ -334,17 +376,7 @@ useEffect(() => {
         </div>
 
         <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center">
-          <CallControls onLeave={async () => {
-  try {
-    await fetch(`https://talent-talk.onrender.com/api/sessions/${sessionId}/leave`, {
-      method: 'POST',
-      credentials: 'include'
-    });
-  } catch (err) {
-    console.error('Leave session error:', err);
-  }
-  navigate("/dashboard");
-}} />
+          <CallControls onLeave={handleLeave} />
         </div>
       </div>
 
@@ -382,6 +414,15 @@ useEffect(() => {
           )}
         </div>
       )}
+
+      {/* AI FEEDBACK MODAL — for participants on leave */}
+      <AIFeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        feedback={aiFeedback}
+        isLoading={feedbackLoading}
+        onConfirmEnd={confirmLeave}
+      />
     </div>
   );
 }

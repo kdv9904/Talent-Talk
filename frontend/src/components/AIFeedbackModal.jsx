@@ -1,6 +1,7 @@
 import { Loader2Icon, XIcon, CheckCircleIcon, AlertCircleIcon, TrendingUpIcon, ZapIcon } from "lucide-react";
 
-function AIFeedbackModal({ isOpen, onClose, feedback, isLoading, onConfirmEnd }) {
+// isParticipant prop: true = "Leave Session", false = "End Session" (host)
+function AIFeedbackModal({ isOpen, onClose, feedback, isLoading, onConfirmEnd, isParticipant = false }) {
   if (!isOpen) return null;
 
   const verdictConfig = {
@@ -115,10 +116,10 @@ function AIFeedbackModal({ isOpen, onClose, feedback, isLoading, onConfirmEnd })
         {/* Footer */}
         <div className="p-6 border-t border-base-300 flex gap-3 justify-end">
           <button onClick={onClose} className="btn btn-ghost">
-            Close
+            Stay
           </button>
           <button onClick={onConfirmEnd} className="btn btn-error">
-            End Session
+            {isParticipant ? "Leave Session" : "End Session"}
           </button>
         </div>
 
