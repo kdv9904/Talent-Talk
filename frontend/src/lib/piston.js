@@ -29,10 +29,11 @@ export async function executeCode(language, code, getToken) { // ✅ add getToke
         "Authorization": `Bearer ${token}` // ✅ add token
       },
       body: JSON.stringify({
-        language: languageConfig.language,
-        version: languageConfig.version,
-        files: [{ name: `main.${getFileExtension(language)}`, content: code }],
-      }),
+  language: languageConfig.language,
+  version: languageConfig.version,
+  source_code: code,
+  stdin: "",
+}),
     });
 
     if (!response.ok) {

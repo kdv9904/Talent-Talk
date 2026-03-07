@@ -38,7 +38,6 @@ app.post('/api/clerk-webhook', express.raw({ type: 'application/json' }), async 
       'svix-signature': svix_signature,
     });
 
-    // Forward to Inngest
     await inngest.send({
       name: `clerk/${evt.type}`, 
       data: evt.data,
@@ -50,6 +49,7 @@ app.post('/api/clerk-webhook', express.raw({ type: 'application/json' }), async 
     res.status(400).json({ error: 'Invalid webhook signature' });
   }
 });
+
 const __dirname = path.resolve();
 
 // Create HTTP server for WebSocket support
@@ -57,14 +57,12 @@ const server = http.createServer(app);
 
 // WebSocket Server Setup
 const wss = new WebSocketServer({ server, path: "/ws" });
-const hrConnections = new Map(); // Map sessionId -> [HR connections]
-const userConnections = new Map(); // Map userId -> connection
+const hrConnections = new Map();
+const userConnections = new Map();
 
-// WebSocket connection handler
 wss.on("connection", (ws, request) => {
   console.log("🔗 New WebSocket connection");
   
-  // Extract query parameters from URL
   const url = new URL(request.url, `http://${request.headers.host}`);
   const sessionId = url.searchParams.get("sessionId");
   const userId = url.searchParams.get("userId");
@@ -79,7 +77,6 @@ wss.on("connection", (ws, request) => {
   }
   
   if (userRole === "hr" || userRole === "admin") {
-    // HR connection for monitoring
     if (!hrConnections.has(sessionId)) {
       hrConnections.set(sessionId, []);
     }
@@ -97,7 +94,6 @@ wss.on("connection", (ws, request) => {
 
     console.log(`👁️ HR ${userId} connected to monitor session ${sessionId}`);
     
-    // Send welcome message
     ws.send(JSON.stringify({ 
       type: "welcome", 
       message: "Connected to HR monitoring system",
@@ -105,7 +101,6 @@ wss.on("connection", (ws, request) => {
       timestamp: new Date().toISOString()
     }));
   } else {
-    // Regular user connection
     userConnections.set(userId, ws);
     
     ws.on("close", () => {
@@ -116,7 +111,6 @@ wss.on("connection", (ws, request) => {
     console.log(`👤 User ${userId} connected to session ${sessionId}`);
   }
 
-  // Handle incoming messages
   ws.on("message", (data) => {
     try {
       const message = JSON.parse(data.toString());
@@ -126,7 +120,6 @@ wss.on("connection", (ws, request) => {
     }
   });
 
-  // Heartbeat to keep connection alive
   const heartbeatInterval = setInterval(() => {
     if (ws.readyState === ws.OPEN) {
       ws.send(JSON.stringify({ type: "ping", timestamp: Date.now() }));
@@ -158,7 +151,6 @@ function handleWebSocketMessage(ws, message, sessionId, userId, userRole) {
   }
 }
 
-// Function to notify HR about tab switch violations
 function notifyHRTabSwitch(sessionId, userId, userName, violationCount, details) {
   const notification = {
     type: "tab_switch_violation",
@@ -186,12 +178,10 @@ function notifyHRTabSwitch(sessionId, userId, userName, violationCount, details)
   }
 }
 
-// Function to get active HR monitors for a session
 function getActiveHRMonitors(sessionId) {
   return hrConnections.get(sessionId)?.length || 0;
 }
 
-// Initialize WebSocket functions in the lib module
 initializeWebSocketFunctions({
   notifyHRTabSwitch,
   getActiveHRMonitors
@@ -211,21 +201,62 @@ app.use("/api/sessions", sessionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes); 
 
+// ─── Judge0 Language ID Map ───────────────────────────────────────────────────
+const JUDGE0_LANGUAGE_IDS = {
+  javascript: 93,  // Node.js 18.15.0
+  python: 71,      // Python 3.11.2
+  java: 62,        // Java 17
+};
+
+// ─── Code Execution via Judge0 (replaces Piston) ──────────────────────────────
 app.post('/api/execute', protectRoute, async (req, res) => {
   try {
-    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body)
+    const { language, source_code } = req.body;
+
+    const languageId = JUDGE0_LANGUAGE_IDS[language];
+    if (!languageId) {
+      return res.status(400).json({ error: `Unsupported language: ${language}` });
+    }
+
+    // Step 1: Submit code to Judge0 and get a submission token
+    const submitResponse = await fetch('https://ce.judge0.com/submissions?base64_encoded=false&wait=true', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+      body: JSON.stringify({
+        language_id: languageId,
+        source_code,
+        stdin: req.body.stdin || '',
+      }),
     });
-    const data = await response.json();
-     console.log('Piston response:', JSON.stringify(data));
-    res.json(data);
+
+    if (!submitResponse.ok) {
+      const errText = await submitResponse.text();
+      console.error('Judge0 error:', errText);
+      return res.status(500).json({ error: 'Code execution failed', details: errText });
+    }
+
+    const result = await submitResponse.json();
+    console.log('Judge0 response:', JSON.stringify(result));
+
+    // Map Judge0 response back to the same shape the frontend expects (Piston-compatible)
+    res.json({
+      run: {
+        output: result.stdout || '',
+        stderr: result.stderr || result.compile_output || '',
+        code: result.exit_code ?? 0,
+        signal: null,
+      },
+      language,
+      version: req.body.version || '',
+    });
+
   } catch (err) {
-    res.status(500).json({ error: 'Code execution failed' });
+    console.error('Execute route error:', err);
+    res.status(500).json({ error: 'Code execution failed', details: err.message });
   }
 });
-
 
 app.get("/", (req, res) => {
   res.status(200).json({ msg: "Talent Talk API is running" });
@@ -235,7 +266,6 @@ app.get("/health", (req, res) => {
   res.status(200).json({ msg: "api is up and running" });
 });
 
-// WebSocket health endpoint
 app.get("/api/ws-health", (req, res) => {
   const health = {
     status: "healthy",
@@ -248,16 +278,12 @@ app.get("/api/ws-health", (req, res) => {
   res.status(200).json(health);
 });
 
-// WebSocket info endpoint
 app.get("/api/ws-info", (req, res) => {
   const sessionDetails = {};
   hrConnections.forEach((connections, sessionId) => {
     sessionDetails[sessionId] = {
       hrConnections: connections.length,
-      hrUserIds: connections.map(ws => {
-        // Extract user info from WebSocket if available
-        return "HR User";
-      })
+      hrUserIds: connections.map(() => "HR User")
     };
   });
 
@@ -275,7 +301,6 @@ const startServer = async () => {
   try {
     await connectDB();
     
-    // Use server.listen instead of app.listen
     server.listen(ENV.PORT, () => {
       console.log(`🚀 Server is running on port: ${ENV.PORT}`);
       console.log(`🔗 WebSocket server available at ws://localhost:${ENV.PORT}/ws`);
