@@ -224,11 +224,25 @@ app.post('/api/execute', protectRoute, async (req, res) => {
   headers: {
     'Content-Type': 'application/json',
   },
-      body: JSON.stringify({
-        language_id: languageId,
-        source_code,
-        stdin: req.body.stdin || '',
-      }),
+     // Auto-wrap Java code with a runnable main class
+let finalCode = source_code;
+if (language === 'java' && !source_code.includes('public static void main')) {
+  finalCode = `
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("✅ Code compiled successfully! (No main method to run)");
+  }
+
+  // ---- Your Solution ----
+  ${source_code}
+}`;
+}
+
+body: JSON.stringify({
+  language_id: languageId,
+  source_code: finalCode,
+  stdin: req.body.stdin || '',
+}),
     });
 
     if (!submitResponse.ok) {
