@@ -208,7 +208,6 @@ const JUDGE0_LANGUAGE_IDS = {
   java: 62,        // Java 17
 };
 
-// ─── Code Execution via Judge0 (replaces Piston) ──────────────────────────────
 app.post('/api/execute', protectRoute, async (req, res) => {
   try {
     const { language, source_code } = req.body;
@@ -218,31 +217,27 @@ app.post('/api/execute', protectRoute, async (req, res) => {
       return res.status(400).json({ error: `Unsupported language: ${language}` });
     }
 
-    // Step 1: Submit code to Judge0 and get a submission token
-    const submitResponse = await fetch('https://ce.judge0.com/submissions?base64_encoded=false&wait=true', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-     // Auto-wrap Java code with a runnable main class
-let finalCode = source_code;
-if (language === 'java' && !source_code.includes('public static void main')) {
-  finalCode = `
-public class Main {
+    // Auto-wrap Java code with a runnable main class
+    let finalCode = source_code;
+    if (language === 'java' && !source_code.includes('public static void main')) {
+      finalCode = `public class Main {
   public static void main(String[] args) {
     System.out.println("✅ Code compiled successfully! (No main method to run)");
   }
-
-  // ---- Your Solution ----
   ${source_code}
 }`;
-}
+    }
 
-body: JSON.stringify({
-  language_id: languageId,
-  source_code: finalCode,
-  stdin: req.body.stdin || '',
-}),
+    const submitResponse = await fetch('https://ce.judge0.com/submissions?base64_encoded=false&wait=true', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        language_id: languageId,
+        source_code: finalCode,
+        stdin: req.body.stdin || '',
+      }),
     });
 
     if (!submitResponse.ok) {
@@ -254,7 +249,6 @@ body: JSON.stringify({
     const result = await submitResponse.json();
     console.log('Judge0 response:', JSON.stringify(result));
 
-    // Map Judge0 response back to the same shape the frontend expects (Piston-compatible)
     res.json({
       run: {
         output: result.stdout || '',
