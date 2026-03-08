@@ -687,19 +687,12 @@ Analyze this code and respond ONLY with a raw JSON object. No markdown, no backt
     }
 }
 
-// GET /sessions/:id/recordings
-router.get("/:id/recordings", requireAuth, async (req, res) => {
+export async function getSessionRecordings(req, res) {
   try {
-    const { StreamClient } = require("@stream-io/node-sdk");
-    const serverClient = new StreamClient(
-      process.env.STREAM_API_KEY,
-      process.env.STREAM_API_SECRET
-    );
-
     const session = await Session.findById(req.params.id);
     if (!session) return res.status(404).json({ message: "Session not found" });
 
-    const response = await serverClient.video.listRecordings({
+    const response = await streamClient.video.listRecordings({
       call_type: "default",
       call_id: session.callId,
     });
@@ -709,4 +702,4 @@ router.get("/:id/recordings", requireAuth, async (req, res) => {
     console.error("Fetch recordings error:", err);
     res.status(500).json({ message: "Failed to fetch recordings" });
   }
-});
+}

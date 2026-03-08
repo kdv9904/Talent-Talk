@@ -14,7 +14,8 @@ import {
   logViolation,
   checkTabSwitchPermission,
   leaveSession,
-  getAIFeedback 
+  getAIFeedback,
+  getSessionRecordings  
 } from "../controllers/sessionController.js";
 import { requireHR } from "../middleware/roleMiddleware.js";
 
@@ -27,7 +28,7 @@ router.get("/my-recent", protectRoute, getMyRecentSessions);
 router.get("/:id/security", protectRoute, getSessionSecurityConfig);
 router.get("/:id/tab-permission", protectRoute, checkTabSwitchPermission);
 router.post("/:id/leave", protectRoute, leaveSession);
-
+router.get("/:id/recordings", protectroute, getSessionRecordings);
 // HR specific routes
 router.get("/admin/all-sessions", protectRoute, requireHR, getAllSessions);
 router.post("/:id/hr-join", protectRoute, requireHR, joinSessionAsHR);
