@@ -11,4 +11,6 @@ export const {
   useMyPresence,
   useOthers,
   useSelf,
+  useStorage,
+  useMutation,
 } = createRoomContext(client);

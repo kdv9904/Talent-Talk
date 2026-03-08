@@ -490,7 +490,7 @@ const confirmEndSession = () => {
 };
 
   return (
-    <RoomProvider id={`session-${id}`} initialPresence={{}}>
+    <RoomProvider id={`session-${id}`} initialPresence={{}} initialStorage={{ code: "" }}>
     <div className="h-screen bg-base-100 flex flex-col">
       <Navbar />
 

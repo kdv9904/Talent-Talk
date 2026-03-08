@@ -1,60 +1,54 @@
-import { useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
-import * as Y from "yjs";
-import { LiveblocksYjsProvider } from "@liveblocks/yjs";
-import { MonacoBinding } from "y-monaco";
-import { useRoom, useOthers } from "../liveblocks.config";
+import { useOthers, useStorage, useMutation } from "../liveblocks.config";
+import { useEffect, useRef } from "react";
 
 function CollaborativeEditor({ language, onCodeChange, options = {} }) {
-  const room = useRoom();
   const others = useOthers();
   const editorRef = useRef(null);
-  const bindingRef = useRef(null);
-  const providerRef = useRef(null);
-  const docRef = useRef(null);
+  const isRemoteUpdate = useRef(false);
 
+  // Read shared code from Liveblocks storage
+  const code = useStorage((root) => root.code);
+
+  // Write shared code to Liveblocks storage
+  const setCode = useMutation(({ storage }, newCode) => {
+    storage.set("code", newCode);
+  }, []);
+
+  // When remote storage changes, update Monaco editor content
   useEffect(() => {
-    if (!room || !editorRef.current) return;
+    if (!editorRef.current || code === undefined || code === null) return;
 
-    const doc = new Y.Doc();
-    const provider = new LiveblocksYjsProvider(room, doc);
-    const yText = doc.getText("monaco");
-
-    docRef.current = doc;
-    providerRef.current = provider;
-
-    // Bind Monaco editor to Yjs text
-    const model = editorRef.current.getModel();
-    if (model) {
-      const binding = new MonacoBinding(
-        yText,
-        model,
-        new Set([editorRef.current]),
-        provider.awareness
-      );
-      bindingRef.current = binding;
-
-      // Fire onCodeChange whenever the shared text changes
-      yText.observe(() => {
-        onCodeChange?.(yText.toString());
-      });
+    const currentValue = editorRef.current.getValue();
+    if (currentValue !== code) {
+      isRemoteUpdate.current = true;
+      const position = editorRef.current.getPosition();
+      editorRef.current.setValue(code);
+      // Restore cursor position after remote update
+      if (position) {
+        editorRef.current.setPosition(position);
+      }
+      isRemoteUpdate.current = false;
     }
+  }, [code]);
 
-    return () => {
-      bindingRef.current?.destroy();
-      providerRef.current?.destroy();
-      docRef.current?.destroy();
-    };
-  }, [room]);
-
-  // When language changes, update the model language
   const handleEditorMount = (editor) => {
     editorRef.current = editor;
+    // Set initial value from storage if it exists
+    if (code !== undefined && code !== null && code !== "") {
+      editor.setValue(code);
+    }
+  };
+
+  const handleChange = (value) => {
+    if (isRemoteUpdate.current) return;
+    const newCode = value || "";
+    setCode(newCode);
+    onCodeChange?.(newCode);
   };
 
   return (
     <div className="relative h-full">
-      {/* Online users indicator */}
       {others.length > 0 && (
         <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-base-300/80 rounded-full px-3 py-1 text-xs">
           <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
@@ -66,6 +60,7 @@ function CollaborativeEditor({ language, onCodeChange, options = {} }) {
         height="100%"
         language={language}
         onMount={handleEditorMount}
+        onChange={handleChange}
         theme="vs-dark"
         options={{
           fontSize: 16,
