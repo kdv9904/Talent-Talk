@@ -100,7 +100,7 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
   const check = async () => {
     try {
       const token = await getToken();
-      const response = await fetch(`${API_BASE_URL}/api/sessions/${id}/tab-permission`, {
+      const response = await fetch(`${API_BASE_URL}/sessions/${id}/tab-permission`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
@@ -169,7 +169,7 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
 
           // server log (fire-and-forget)
           getToken().then(token => {
-  fetch(`${API_BASE_URL}/api/sessions/${id}/violation`, {
+  fetch(`${API_BASE_URL}/sessions/${id}/violation`, {
     method: "POST",
     headers: { 
       "Content-Type": "application/json",
