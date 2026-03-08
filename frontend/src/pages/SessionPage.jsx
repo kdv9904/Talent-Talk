@@ -232,18 +232,17 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
     };
   }, [isHR, session, id, user?.id, navigate, hasTabSwitchPermission]);
 
-  // SMART RESTRICTIONS - ALLOW TYPING IN CODE EDITOR, BLOCK COPY/PASTE ELSEWHERE
+  
   useEffect(() => {
-    // Define event handlers outside so they're accessible in cleanup
+
+    // ── 1. Define ALL handlers at the top ──────────────────────────────────────
     const handleCopy = (e) => {
       const isFromEditor =
         e.target.closest(".monaco-editor") ||
         e.target.closest(".CodeEditorPanel");
       if (!isFromEditor) {
         e.preventDefault();
-        setTimeout(() => {
-          alert("❌ Copying disabled during session!");
-        }, 100);
+        setTimeout(() => alert("❌ Copying disabled during session!"), 100);
       }
     };
 
@@ -253,9 +252,7 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
         e.target.closest(".CodeEditorPanel");
       if (!isFromEditor) {
         e.preventDefault();
-        setTimeout(() => {
-          alert("❌ Cutting disabled during session!");
-        }, 100);
+        setTimeout(() => alert("❌ Cutting disabled during session!"), 100);
       }
     };
 
@@ -265,9 +262,7 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
         e.target.closest(".CodeEditorPanel");
       if (!isFromEditor) {
         e.preventDefault();
-        setTimeout(() => {
-          alert("❌ Pasting disabled during session!");
-        }, 100);
+        setTimeout(() => alert("❌ Pasting disabled during session!"), 100);
       }
     };
 
@@ -277,9 +272,7 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
         e.target.closest(".CodeEditorPanel");
       if (!isFromEditor) {
         e.preventDefault();
-        setTimeout(() => {
-          alert("❌ Right-click disabled during session!");
-        }, 100);
+        setTimeout(() => alert("❌ Right-click disabled during session!"), 100);
       }
     };
 
@@ -292,112 +285,97 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
       }
     };
 
-    // Cleanup function - always runs on unmount
+    // Block paste specifically inside Monaco editor textarea
+    const handleMonacoPaste = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      setTimeout(() => alert("❌ Pasting disabled during session!"), 100);
+    };
+
+    // ── 2. Cleanup function — references all handlers defined above ────────────
     const cleanupRestrictions = () => {
-      // Remove event listeners
       document.removeEventListener("copy", handleCopy);
       document.removeEventListener("cut", handleCut);
       document.removeEventListener("paste", handlePaste);
       document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("selectstart", handleSelectStart);
 
-      // Remove styles
+      // Remove Monaco paste listeners
+      document.querySelectorAll('.monaco-editor .inputarea').forEach(el => {
+        el.removeEventListener('paste', handleMonacoPaste);
+      });
+
+      // Remove injected styles
       const styleElement = document.getElementById("smart-restrictions");
-      if (styleElement) {
-        styleElement.remove();
-      }
+      if (styleElement) styleElement.remove();
     };
 
-    // Skip restrictions if user has permission or is HR
+    // ── 3. Skip restrictions if HR or user has permission ─────────────────────
     if (
       hasTabSwitchPermission ||
       isHR ||
       !session ||
       session.status !== "active"
     ) {
-      // Clean up any existing restrictions that might be left over
       cleanupRestrictions();
       return cleanupRestrictions;
     }
 
-    // Add event listeners
+    // ── 4. Add document-level event listeners ─────────────────────────────────
     document.addEventListener("copy", handleCopy);
     document.addEventListener("cut", handleCut);
     document.addEventListener("paste", handlePaste);
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("selectstart", handleSelectStart);
 
-    // Smart CSS - disable selection everywhere EXCEPT code editor
+    // ── 5. Add Monaco-specific paste blocker (with delay for editor to mount) ──
+    setTimeout(() => {
+      document.querySelectorAll('.monaco-editor .inputarea').forEach(el => {
+        el.addEventListener('paste', handleMonacoPaste);
+      });
+    }, 1000);
+
+    // ── 6. Inject CSS ──────────────────────────────────────────────────────────
     const style = document.createElement("style");
     style.id = "smart-restrictions";
     style.textContent = `
-      /* Disable selection everywhere by default */
       * {
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
         -ms-user-select: none !important;
         user-select: none !important;
       }
-      
-      /* ALLOW selection in code editor */
-      .monaco-editor *,
-      .monaco-editor,
-      [data-testid="code-editor"] *,
-      .CodeEditorPanel * {
+      .monaco-editor *, .monaco-editor,
+      [data-testid="code-editor"] *, .CodeEditorPanel * {
         -webkit-user-select: text !important;
         -moz-user-select: text !important;
         -ms-user-select: text !important;
         user-select: text !important;
       }
-      
-      /* Hide selection highlights outside editor */
-      ::selection {
-        background: transparent !important;
-      }
-      ::-moz-selection {
-        background: transparent !important;
-      }
-      
-      /* Allow selection in editor */
-      .monaco-editor ::selection {
-        background: #0078d4 !important;
-      }
-      .monaco-editor ::-moz-selection {
-        background: #0078d4 !important;
-      }
-        .monaco-editor .inputarea {
-  pointer-events: none !important;
-}
-
+      ::selection { background: transparent !important; }
+      ::-moz-selection { background: transparent !important; }
+      .monaco-editor ::selection { background: #0078d4 !important; }
+      .monaco-editor ::-moz-selection { background: #0078d4 !important; }
     `;
     document.head.appendChild(style);
 
-    // Override clipboard API
-    const overrideClipboard = () => {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        const originalWriteText = navigator.clipboard.writeText;
-        navigator.clipboard.writeText = function (text) {
-          // Check if the call is coming from the editor
-          const activeElement = document.activeElement;
-          const isFromEditor =
-            activeElement &&
-            (activeElement.closest(".monaco-editor") ||
-              activeElement.closest(".CodeEditorPanel"));
+    // ── 7. Override clipboard API ──────────────────────────────────────────────
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      const originalWriteText = navigator.clipboard.writeText;
+      navigator.clipboard.writeText = function (text) {
+        const activeElement = document.activeElement;
+        const isFromEditor =
+          activeElement &&
+          (activeElement.closest(".monaco-editor") ||
+            activeElement.closest(".CodeEditorPanel"));
+        if (!isFromEditor) {
+          setTimeout(() => alert("❌ Clipboard access disabled during session!"), 100);
+          return Promise.reject(new Error("Clipboard disabled"));
+        }
+        return originalWriteText.call(this, text);
+      };
+    }
 
-          if (!isFromEditor) {
-            setTimeout(() => {
-              alert("❌ Clipboard access disabled during session!");
-            }, 100);
-            return Promise.reject(new Error("Clipboard disabled"));
-          }
-          return originalWriteText.call(this, text);
-        };
-      }
-    };
-
-    overrideClipboard();
-
-    // Return cleanup function
     return cleanupRestrictions;
   }, [isHR, session, hasTabSwitchPermission]);
 
