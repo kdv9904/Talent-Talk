@@ -3,6 +3,7 @@ import {
   CallingState,
   SpeakerLayout,
   useCallStateHooks,
+  useCallStateHooks, useCall
 } from "@stream-io/video-react-sdk";
 import { Loader2Icon, MessageSquareIcon, UsersIcon, XIcon, ShieldIcon, UnlockIcon, LockIcon, UserIcon, SearchIcon, AlertCircleIcon } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -33,6 +34,9 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [aiFeedback, setAiFeedback] = useState(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const call = useCall();
+  const { useIsCallRecordingInProgress } = useCallStateHooks();
+const isRecording = useIsCallRecordingInProgress();
 
   useEffect(() => {
     if (isHR && session?.participants) {
@@ -188,6 +192,12 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
             <span className="font-semibold">
               {participantCount} {participantCount === 1 ? "participant" : "participants"}
             </span>
+            {isRecording && (
+  <div className="flex items-center gap-1 badge badge-error badge-sm animate-pulse">
+    <span className="w-2 h-2 bg-white rounded-full"></span>
+    Recording
+  </div>
+)}
             {!isHR && (
               <div className={`badge ${hasTabSwitchPermission ? 'badge-success' : 'badge-warning'} badge-sm`}>
                 {hasTabSwitchPermission ? 'Tab Access Allowed' : 'Tab Access Restricted'}
