@@ -167,12 +167,13 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
           // UI
           setShowTabWarning(true);
 
+          // server log (fire-and-forget)
           getToken().then(token => {
   fetch(`${API_BASE_URL}/sessions/${id}/violation`, {
     method: "POST",
     headers: { 
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
+      "Authorization": `Bearer ${token}` // ✅
     },
     body: JSON.stringify({
       type: "tab_switch",
@@ -234,19 +235,25 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
   
   useEffect(() => {
 
-   const handleCopy = (e) => {
-  e.preventDefault();
-  setTimeout(() => alert("❌ Copying disabled during session!"), 100);
+   // Allow copying FROM editor, block copying from question
+const handleCopy = (e) => {
+  const isFromEditor = e.target.closest(".monaco-editor") || e.target.closest(".CodeEditorPanel");
+  if (!isFromEditor) {
+    e.preventDefault();
+    setTimeout(() => alert("❌ Copying disabled during session!"), 100);
+  }
 };
 
+// Block paste EVERYWHERE including editor
+const handlePaste = (e) => {
+  e.preventDefault();
+  setTimeout(() => alert("❌ Pasting disabled during session!"), 100);
+};
+
+// Block cut everywhere
 const handleCut = (e) => {
   e.preventDefault();
   setTimeout(() => alert("❌ Cutting disabled during session!"), 100);
-};
-
-    const handlePaste = (e) => {
-  e.preventDefault();
-  setTimeout(() => alert("❌ Pasting disabled during session!"), 100);
 };
 
     const handleContextMenu = (e) => {
