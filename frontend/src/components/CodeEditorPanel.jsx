@@ -1,10 +1,9 @@
-import Editor from "@monaco-editor/react";
 import { Loader2Icon, PlayIcon } from "lucide-react";
 import { LANGUAGE_CONFIG } from "../data/problems";
+import CollaborativeEditor from "./CollaborativeEditor";
 
 function CodeEditorPanel({
   selectedLanguage,
-  code,
   isRunning,
   onLanguageChange,
   onCodeChange,
@@ -12,6 +11,7 @@ function CodeEditorPanel({
 }) {
   return (
     <div className="h-full bg-base-300 flex flex-col">
+      {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-3 bg-base-100 border-t border-base-300">
         <div className="flex items-center gap-3">
           <img
@@ -19,7 +19,11 @@ function CodeEditorPanel({
             alt={LANGUAGE_CONFIG[selectedLanguage].name}
             className="size-6"
           />
-          <select className="select select-sm" value={selectedLanguage} onChange={onLanguageChange}>
+          <select
+            className="select select-sm"
+            value={selectedLanguage}
+            onChange={onLanguageChange}
+          >
             {Object.entries(LANGUAGE_CONFIG).map(([key, lang]) => (
               <option key={key} value={key}>
                 {lang.name}
@@ -28,7 +32,11 @@ function CodeEditorPanel({
           </select>
         </div>
 
-        <button className="btn btn-primary btn-sm gap-2" disabled={isRunning} onClick={onRunCode}>
+        <button
+          className="btn btn-primary btn-sm gap-2"
+          disabled={isRunning}
+          onClick={onRunCode}
+        >
           {isRunning ? (
             <>
               <Loader2Icon className="size-4 animate-spin" />
@@ -43,23 +51,15 @@ function CodeEditorPanel({
         </button>
       </div>
 
+      {/* Collaborative Monaco Editor */}
       <div className="flex-1">
-        <Editor
-          height={"100%"}
+        <CollaborativeEditor
           language={LANGUAGE_CONFIG[selectedLanguage].monacoLang}
-          value={code}
-          onChange={onCodeChange}
-          theme="vs-dark"
-          options={{
-            fontSize: 16,
-            lineNumbers: "on",
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            minimap: { enabled: false },
-          }}
+          onCodeChange={onCodeChange}
         />
       </div>
     </div>
   );
 }
+
 export default CodeEditorPanel;

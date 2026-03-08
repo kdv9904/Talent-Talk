@@ -28,6 +28,7 @@ import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
 import AIFeedbackModal from "../components/AIFeedbackModal";
 import { sessionApi } from "../api/sessions";
+import { RoomProvider } from "../liveblocks.config";
 
 function SessionPage() {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -489,6 +490,7 @@ const confirmEndSession = () => {
 };
 
   return (
+    <RoomProvider id={`session-${id}`} initialPresence={{}}>
     <div className="h-screen bg-base-100 flex flex-col">
       <Navbar />
 
@@ -698,13 +700,12 @@ const confirmEndSession = () => {
                     {/* Add CodeEditorPanel class for restrictions targeting */}
                     <div className="CodeEditorPanel h-full">
                       <CodeEditorPanel
-                        selectedLanguage={selectedLanguage}
-                        code={code}
-                        isRunning={isRunning}
-                        onLanguageChange={handleLanguageChange}
-                        onCodeChange={(value) => setCode(value)}
-                        onRunCode={handleRunCode}
-                      />
+  selectedLanguage={selectedLanguage}
+  isRunning={isRunning}
+  onLanguageChange={handleLanguageChange}
+  onCodeChange={(value) => setCode(value)}
+  onRunCode={handleRunCode}
+/>
                     </div>
                   </Panel>
 
@@ -779,6 +780,7 @@ const confirmEndSession = () => {
   onConfirmEnd={confirmEndSession}
 />
     </div>
+    </RoomProvider>
   );
 }
 

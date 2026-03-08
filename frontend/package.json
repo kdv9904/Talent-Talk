@@ -11,6 +11,10 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.55.0",
+    "@liveblocks/client": "^3.15.0",
+    "@liveblocks/react": "^3.15.0",
+    "@liveblocks/react-tiptap": "^3.15.0",
+    "@liveblocks/yjs": "^3.15.0",
     "@monaco-editor/react": "^4.7.0",
     "@stream-io/video-react-sdk": "^1.24.0",
     "@tailwindcss/postcss": "^4.1.17",
@@ -30,7 +34,9 @@
     "stream-chat": "^9.23.0",
     "stream-chat-react": "^13.9.0",
     "tailwindcss": "^4.1.14",
-    "Talent-Talk": "file:.."
+    "Talent-Talk": "file:..",
+    "y-monaco": "^0.1.6",
+    "yjs": "^13.6.29"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
