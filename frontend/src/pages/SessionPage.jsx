@@ -721,6 +721,7 @@ const confirmEndSession = () => {
   chatClient={chatClient}
   channel={channel}
   isHR={isHR}
+  isAdmin={isAdmin} 
   sessionId={id}
   participantCount={participantCount}
   maxParticipants={maxParticipants}

@@ -40,6 +40,7 @@ function VideoCallUI({
   chatClient,
   channel,
   isHR,
+  isAdmin,
   sessionId,
   participantCount,
   maxParticipants,
@@ -270,6 +271,7 @@ function VideoCallUI({
 
   const stopLocalRecording = () => {
     if (mediaRecorder) {
+      mediaRecorder.requestData(); 
       mediaRecorder.stop();
       setMediaRecorder(null);
     }
@@ -533,14 +535,16 @@ function VideoCallUI({
         <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center">
           <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center items-center gap-3">
   <CallControls onLeave={handleLeave} />
-  <button
-    onClick={handleRecording}
-    className={`btn btn-sm gap-2 ${isRecording ? 'btn-error animate-pulse' : 'btn-ghost border border-base-300'}`}
-    title={isRecording ? 'Stop Recording' : 'Start Recording'}
-  >
-    <span className={`w-3 h-3 rounded-full ${isRecording ? 'bg-white' : 'bg-error'}`} />
-    {isRecording ? 'Stop' : 'Record'}
-  </button>
+  {(isHR || isAdmin) && (  // ← add this guard
+    <button
+      onClick={handleRecording}
+      className={`btn btn-sm gap-2 ${isRecording ? 'btn-error animate-pulse' : 'btn-ghost border border-base-300'}`}
+      title={isRecording ? 'Stop Recording' : 'Start Recording'}
+    >
+      <span className={`w-3 h-3 rounded-full ${isRecording ? 'bg-white' : 'bg-error'}`} />
+      {isRecording ? 'Stop' : 'Record'}
+    </button>
+  )}
 </div>
         </div>
       </div>
