@@ -54,20 +54,22 @@ function VideoCallUI({
   const { useCallCallingState, useParticipants } = useCallStateHooks();
   const callingState = useCallCallingState();
   const videoParticipants = useParticipants();
+  const call = useCall();
+
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isManagingPermissions, setIsManagingPermissions] = useState(false);
   const [participantsData, setParticipantsData] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
 
-  // AI Feedback state for participants
+  // AI Feedback state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [aiFeedback, setAiFeedback] = useState(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
-  const call = useCall();
+
+  // Recording state
   const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [recordingChunks, setRecordingChunks] = useState([]);
+  const [isProcessingRecording, setIsProcessingRecording] = useState(false);
 
   useEffect(() => {
     if (isHR && session?.participants) {
@@ -85,7 +87,64 @@ function VideoCallUI({
     }
   }, [isHR, session]);
 
-  // Handle leave — show AI feedback first, then navigate
+  // ── RECORDING ─────────────────────────────────────────────────────────────
+
+  const pollAndDownload = async (retries = 12) => {
+    if (retries === 0) {
+      setIsProcessingRecording(false);
+      alert("⚠️ Recording is taking too long to process. Check the Stream dashboard.");
+      return;
+    }
+
+    try {
+      const token = await getToken();
+      const res = await fetch(
+        `${API_BASE_URL}/sessions/${sessionId}/recordings`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      const recordings = data.recordings || [];
+
+      const latest = recordings
+        .filter((r) => r.status === "available" && r.url)
+        .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))[0];
+
+      if (latest?.url) {
+        setIsProcessingRecording(false);
+        const a = document.createElement("a");
+        a.href = latest.url;
+        a.download = `session-${sessionId}-${Date.now()}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        setTimeout(() => pollAndDownload(retries - 1), 5000);
+      }
+    } catch (err) {
+      console.error("Poll error:", err);
+      setTimeout(() => pollAndDownload(retries - 1), 5000);
+    }
+  };
+
+  const handleRecording = async () => {
+    try {
+      if (isRecording) {
+        await call.stopRecording();
+        setIsRecording(false);
+        setIsProcessingRecording(true);
+        pollAndDownload();
+      } else {
+        await call.startRecording();
+        setIsRecording(true);
+      }
+    } catch (err) {
+      console.error("Recording error:", err);
+      alert("❌ Recording failed. Check console.");
+    }
+  };
+
+  // ── LEAVE ─────────────────────────────────────────────────────────────────
+
   const handleLeave = async () => {
     if (isHR) {
       try {
@@ -101,7 +160,6 @@ function VideoCallUI({
       return;
     }
 
-    // Participant: show AI feedback modal first
     setShowFeedbackModal(true);
     setFeedbackLoading(true);
 
@@ -133,6 +191,8 @@ function VideoCallUI({
     navigate("/dashboard");
   };
 
+  // ── PERMISSIONS ───────────────────────────────────────────────────────────
+
   const handlePermissionAction = async (participantId, action) => {
     if (!participantId) {
       alert("Error: Invalid participant ID");
@@ -154,24 +214,20 @@ function VideoCallUI({
             userId: participantId,
             permission: action ? "grant" : "revoke",
           }),
-        },
+        }
       );
 
       if (response.ok) {
         setParticipantsData((prev) =>
           prev.map((p) =>
-            p.id === participantId ? { ...p, tabSwitchAllowed: action } : p,
-          ),
+            p.id === participantId ? { ...p, tabSwitchAllowed: action } : p
+          )
         );
 
         if (channel) {
-          const participant = participantsData.find(
-            (p) => p.id === participantId,
-          );
+          const participant = participantsData.find((p) => p.id === participantId);
           await channel.sendMessage({
-            text: `🔓 HR ${
-              action ? "granted" : "revoked"
-            } tab switching permission for ${
+            text: `🔓 HR ${action ? "granted" : "revoked"} tab switching permission for ${
               participant?.name || "a participant"
             }.`,
           });
@@ -180,11 +236,7 @@ function VideoCallUI({
         alert(`Permission ${action ? "granted" : "revoked"} successfully!`);
       } else {
         const errorData = await response.json();
-        alert(
-          `Failed to update permission: ${
-            errorData.message || "Unknown error"
-          }`,
-        );
+        alert(`Failed to update permission: ${errorData.message || "Unknown error"}`);
       }
     } catch (error) {
       console.error("Failed to update permission:", error);
@@ -197,13 +249,9 @@ function VideoCallUI({
   const handleBulkPermission = async (action) => {
     if (
       !confirm(
-        `Are you sure you want to ${
-          action ? "grant" : "revoke"
-        } tab switch permission for all participants?`,
+        `Are you sure you want to ${action ? "grant" : "revoke"} tab switch permission for all participants?`
       )
-    ) {
-      return;
-    }
+    ) return;
 
     setActionLoading("bulk");
     try {
@@ -218,10 +266,12 @@ function VideoCallUI({
   };
 
   const filteredParticipants = participantsData.filter(
-    (participant) =>
-      participant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      participant.email.toLowerCase().includes(searchTerm.toLowerCase()),
+    (p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // ── LOADING STATE ─────────────────────────────────────────────────────────
 
   if (callingState === CallingState.JOINING) {
     return (
@@ -234,66 +284,13 @@ function VideoCallUI({
     );
   }
 
-  const startLocalRecording = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: true,
-    });
-
-    const chunks = [];
-    const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
-
-    recorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) chunks.push(e.data);
-    };
-
-    recorder.onstop = () => {
-      if (chunks.length === 0) {
-        alert("❌ No recording data captured.");
-        stream.getTracks().forEach((track) => track.stop());
-        setIsRecording(false);
-        return;
-      }
-
-      const blob = new Blob(chunks, { type: "video/webm" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `session-${sessionId}-${Date.now()}.webm`;
-      document.body.appendChild(a); // ← required in some browsers
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      stream.getTracks().forEach((track) => track.stop());
-      setIsRecording(false);
-    };
-
-    recorder.start(1000); // ← timeslice: fires ondataavailable every 1 second
-    setMediaRecorder(recorder);
-    setIsRecording(true);
-  } catch (err) {
-    console.error("Recording failed:", err);
-    alert("❌ Recording failed. Please allow screen sharing.");
-  }
-};
-
-  const stopLocalRecording = () => {
-    if (mediaRecorder) {
-      mediaRecorder.requestData(); 
-      mediaRecorder.stop();
-      setMediaRecorder(null);
-    }
-  };
-
-  const handleRecording = () => {
-    if (isRecording) stopLocalRecording();
-    else startLocalRecording();
-  };
+  // ── RENDER ────────────────────────────────────────────────────────────────
 
   return (
     <div className="h-full flex gap-3 relative str-video">
       <div className="flex-1 flex flex-col gap-3">
+
+        {/* TOP BAR */}
         <div className="flex items-center justify-between gap-2 bg-base-100 p-3 rounded-lg shadow">
           <div className="flex items-center gap-2">
             <UsersIcon className="w-5 h-5 text-primary" />
@@ -301,21 +298,28 @@ function VideoCallUI({
               {participantCount}{" "}
               {participantCount === 1 ? "participant" : "participants"}
             </span>
+
             {isRecording && (
               <div className="flex items-center gap-1 badge badge-error badge-sm animate-pulse">
-                <span className="w-2 h-2 bg-white rounded-full inline-block"></span>
+                <span className="w-2 h-2 bg-white rounded-full inline-block" />
                 Recording
               </div>
             )}
+
+            {isProcessingRecording && (
+              <div className="flex items-center gap-1 badge badge-warning badge-sm animate-pulse">
+                <Loader2Icon className="w-3 h-3 animate-spin" />
+                Processing...
+              </div>
+            )}
+
             {!isHR && (
               <div
                 className={`badge ${
                   hasTabSwitchPermission ? "badge-success" : "badge-warning"
                 } badge-sm`}
               >
-                {hasTabSwitchPermission
-                  ? "Tab Access Allowed"
-                  : "Tab Access Restricted"}
+                {hasTabSwitchPermission ? "Tab Access Allowed" : "Tab Access Restricted"}
               </div>
             )}
           </div>
@@ -336,9 +340,7 @@ function VideoCallUI({
             {chatClient && channel && (
               <button
                 onClick={() => setIsChatOpen(!isChatOpen)}
-                className={`btn btn-sm gap-2 ${
-                  isChatOpen ? "btn-primary" : "btn-ghost"
-                }`}
+                className={`btn btn-sm gap-2 ${isChatOpen ? "btn-primary" : "btn-ghost"}`}
               >
                 <MessageSquareIcon className="size-4" />
                 Chat
@@ -353,18 +355,13 @@ function VideoCallUI({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <ShieldIcon className="w-5 h-5 text-warning" />
-                <h3 className="font-semibold text-warning-content">
-                  HR Permission Management
-                </h3>
+                <h3 className="font-semibold text-warning-content">HR Permission Management</h3>
               </div>
               <div className="flex items-center gap-2">
                 <span className="badge badge-sm badge-warning">
                   {participantsData.length} Participants
                 </span>
-                <button
-                  onClick={() => setIsManagingPermissions(false)}
-                  className="btn btn-ghost btn-sm"
-                >
+                <button onClick={() => setIsManagingPermissions(false)} className="btn btn-ghost btn-sm">
                   <XIcon className="size-4" />
                 </button>
               </div>
@@ -412,12 +409,8 @@ function VideoCallUI({
                 {participantsData.length === 0 ? (
                   <div className="text-center py-4 text-warning-content/70">
                     <AlertCircleIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">
-                      No participants found in this session
-                    </p>
-                    <p className="text-xs opacity-70">
-                      Participants will appear here when they join
-                    </p>
+                    <p className="text-sm">No participants found in this session</p>
+                    <p className="text-xs opacity-70">Participants will appear here when they join</p>
                   </div>
                 ) : filteredParticipants.length > 0 ? (
                   filteredParticipants.map((participant) => (
@@ -441,19 +434,12 @@ function VideoCallUI({
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm truncate">
-                              {participant.name}
-                            </p>
+                            <p className="font-medium text-sm truncate">{participant.name}</p>
                             {participant.isOnline && (
-                              <div
-                                className="w-2 h-2 bg-success rounded-full"
-                                title="Online"
-                              />
+                              <div className="w-2 h-2 bg-success rounded-full" title="Online" />
                             )}
                           </div>
-                          <p className="text-xs opacity-70 truncate">
-                            {participant.email}
-                          </p>
+                          <p className="text-xs opacity-70 truncate">{participant.email}</p>
                           {participant.violations.length > 0 && (
                             <p className="text-xs text-error">
                               {participant.violations.length} violation(s)
@@ -465,20 +451,14 @@ function VideoCallUI({
                       <div className="flex items-center gap-2">
                         <div
                           className={`badge badge-sm ${
-                            participant.tabSwitchAllowed
-                              ? "badge-success"
-                              : "badge-warning"
+                            participant.tabSwitchAllowed ? "badge-success" : "badge-warning"
                           }`}
                         >
-                          {participant.tabSwitchAllowed
-                            ? "Allowed"
-                            : "Restricted"}
+                          {participant.tabSwitchAllowed ? "Allowed" : "Restricted"}
                         </div>
                         {participant.tabSwitchAllowed ? (
                           <button
-                            onClick={() =>
-                              handlePermissionAction(participant.id, false)
-                            }
+                            onClick={() => handlePermissionAction(participant.id, false)}
                             disabled={actionLoading === participant.id}
                             className="btn btn-error btn-xs gap-1"
                           >
@@ -491,9 +471,7 @@ function VideoCallUI({
                           </button>
                         ) : (
                           <button
-                            onClick={() =>
-                              handlePermissionAction(participant.id, true)
-                            }
+                            onClick={() => handlePermissionAction(participant.id, true)}
                             disabled={actionLoading === participant.id}
                             className="btn btn-success btn-xs gap-1"
                           >
@@ -523,13 +501,7 @@ function VideoCallUI({
                     <p>Session ID: {sessionId}</p>
                     <p>Total Participants: {participantsData.length}</p>
                     <p>Video Participants: {videoParticipants.length}</p>
-                    <p>
-                      With Permission:{" "}
-                      {
-                        participantsData.filter((p) => p.tabSwitchAllowed)
-                          .length
-                      }
-                    </p>
+                    <p>With Permission: {participantsData.filter((p) => p.tabSwitchAllowed).length}</p>
                   </div>
                 </details>
               </div>
@@ -537,28 +509,46 @@ function VideoCallUI({
           </div>
         )}
 
+        {/* VIDEO */}
         <div className="flex-1 bg-base-300 rounded-lg overflow-hidden relative">
           <SpeakerLayout />
         </div>
 
-        <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center">
-          <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center items-center gap-3">
-  <CallControls onLeave={handleLeave} />
-  {(isHR || isAdmin) && (  // ← add this guard
-    <button
-      onClick={handleRecording}
-      className={`btn btn-sm gap-2 ${isRecording ? 'btn-error animate-pulse' : 'btn-ghost border border-base-300'}`}
-      title={isRecording ? 'Stop Recording' : 'Start Recording'}
-    >
-      <span className={`w-3 h-3 rounded-full ${isRecording ? 'bg-white' : 'bg-error'}`} />
-      {isRecording ? 'Stop' : 'Record'}
-    </button>
-  )}
-</div>
+        {/* BOTTOM CONTROLS */}
+        <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center items-center gap-3">
+          <CallControls onLeave={handleLeave} />
+
+          {(isHR || isAdmin) && (
+            <button
+              onClick={handleRecording}
+              disabled={isProcessingRecording}
+              className={`btn btn-sm gap-2 ${
+                isRecording
+                  ? "btn-error animate-pulse"
+                  : isProcessingRecording
+                  ? "btn-warning"
+                  : "btn-ghost border border-base-300"
+              }`}
+              title={
+                isRecording
+                  ? "Stop Recording"
+                  : isProcessingRecording
+                  ? "Processing recording..."
+                  : "Start Recording"
+              }
+            >
+              {isProcessingRecording ? (
+                <Loader2Icon className="w-3 h-3 animate-spin" />
+              ) : (
+                <span className={`w-3 h-3 rounded-full ${isRecording ? "bg-white" : "bg-error"}`} />
+              )}
+              {isRecording ? "Stop" : isProcessingRecording ? "Processing..." : "Record"}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* CHAT SECTION */}
+      {/* CHAT PANEL */}
       {chatClient && channel && (
         <div
           className={`flex flex-col rounded-lg shadow overflow-hidden bg-[#272a30] transition-all duration-300 ease-in-out ${
