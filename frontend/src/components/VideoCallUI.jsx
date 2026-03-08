@@ -234,62 +234,37 @@ function VideoCallUI({
     );
   }
 
-  const startLocalRecording = async () => {
+  const handleRecording = async () => {
+  if (!call) return;
+
   try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: true,
-    });
-
-    const chunks = [];
-    const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
-
-    recorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) chunks.push(e.data);
-    };
-
-    recorder.onstop = () => {
-      if (chunks.length === 0) {
-        alert("❌ No recording data captured.");
-        stream.getTracks().forEach((track) => track.stop());
-        setIsRecording(false);
-        return;
-      }
-
-      const blob = new Blob(chunks, { type: "video/webm" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `session-${sessionId}-${Date.now()}.webm`;
-      document.body.appendChild(a); // ← required in some browsers
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      stream.getTracks().forEach((track) => track.stop());
+    if (isRecording) {
+      await call.stopRecording();
       setIsRecording(false);
-    };
 
-    recorder.start(1000); // ← timeslice: fires ondataavailable every 1 second
-    setMediaRecorder(recorder);
-    setIsRecording(true);
+      const recordings = await call.queryRecordings();
+
+      if (recordings?.recordings?.length > 0) {
+        const latestRecording =
+  recordings.recordings[recordings.recordings.length - 1];
+
+const url = latestRecording.url;
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `session-${sessionId}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } else {
+      await call.startRecording();
+      setIsRecording(true);
+    }
   } catch (err) {
-    console.error("Recording failed:", err);
-    alert("❌ Recording failed. Please allow screen sharing.");
+    console.error("Recording error:", err);
   }
 };
-
-  const stopLocalRecording = () => {
-    if (mediaRecorder) {
-      mediaRecorder.requestData(); 
-      mediaRecorder.stop();
-      setMediaRecorder(null);
-    }
-  };
-
-  const handleRecording = () => {
-    if (isRecording) stopLocalRecording();
-    else startLocalRecording();
-  };
 
   return (
     <div className="h-full flex gap-3 relative str-video">
