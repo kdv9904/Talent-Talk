@@ -69,19 +69,6 @@ function CollaborativeEditor({ language, onCodeChange, options = {} }) {
 
   return (
     <div className="relative h-full">
-      {/* Debug overlay */}
-      <div className="absolute bottom-2 left-2 z-10 bg-black/70 text-green-400 text-xs p-2 rounded font-mono max-w-xs">
-        <div>🔵 Storage code: {code === null ? "null" : code === undefined ? "undefined" : `"${code?.slice(0, 20)}..."`}</div>
-        <div>👥 Others: {others.length}</div>
-        <div>📝 Editor ready: {editorRef.current ? "yes" : "no"}</div>
-      </div>
-
-      {others.length > 0 && (
-        <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-base-300/80 rounded-full px-3 py-1 text-xs">
-          <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-          {others.length} other{others.length > 1 ? "s" : ""} editing
-        </div>
-      )}
 
       <Editor
         height="100%"
