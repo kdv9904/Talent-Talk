@@ -36,7 +36,7 @@ function SessionPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useUser();
-  const { isHR, userRole } = useUserRole();
+  const { isHR, userRole, isAdmin } = useUserRole();
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const { getToken } = useAuth();
