@@ -531,7 +531,17 @@ function VideoCallUI({
         </div>
 
         <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center">
-          <CallControls onLeave={handleLeave} />
+          <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center items-center gap-3">
+  <CallControls onLeave={handleLeave} />
+  <button
+    onClick={handleRecording}
+    className={`btn btn-sm gap-2 ${isRecording ? 'btn-error animate-pulse' : 'btn-ghost border border-base-300'}`}
+    title={isRecording ? 'Stop Recording' : 'Start Recording'}
+  >
+    <span className={`w-3 h-3 rounded-full ${isRecording ? 'bg-white' : 'bg-error'}`} />
+    {isRecording ? 'Stop' : 'Record'}
+  </button>
+</div>
         </div>
       </div>
 
