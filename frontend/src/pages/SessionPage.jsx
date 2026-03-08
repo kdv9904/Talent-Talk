@@ -235,41 +235,26 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
   // SMART RESTRICTIONS - ALLOW TYPING IN CODE EDITOR, BLOCK COPY/PASTE ELSEWHERE
   useEffect(() => {
     // Define event handlers outside so they're accessible in cleanup
-    const handleCopy = (e) => {
-      const isFromEditor =
-        e.target.closest(".monaco-editor") ||
-        e.target.closest(".CodeEditorPanel");
-      if (!isFromEditor) {
-        e.preventDefault();
-        setTimeout(() => {
-          alert("❌ Copying disabled during session!");
-        }, 100);
-      }
-    };
+   const handleCopy = (e) => {
+  e.preventDefault();
+  setTimeout(() => {
+    alert("❌ Copying disabled during session!");
+  }, 100);
+};
 
     const handleCut = (e) => {
-      const isFromEditor =
-        e.target.closest(".monaco-editor") ||
-        e.target.closest(".CodeEditorPanel");
-      if (!isFromEditor) {
         e.preventDefault();
         setTimeout(() => {
           alert("❌ Cutting disabled during session!");
         }, 100);
-      }
     };
 
     const handlePaste = (e) => {
-      const isFromEditor =
-        e.target.closest(".monaco-editor") ||
-        e.target.closest(".CodeEditorPanel");
-      if (!isFromEditor) {
-        e.preventDefault();
-        setTimeout(() => {
-          alert("❌ Pasting disabled during session!");
-        }, 100);
-      }
-    };
+  e.preventDefault();
+  setTimeout(() => {
+    alert("❌ Pasting disabled during session!");
+  }, 100);
+};
 
     const handleContextMenu = (e) => {
       const isFromEditor =
