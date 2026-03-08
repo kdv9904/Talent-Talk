@@ -7,6 +7,7 @@ import {
 import { Loader2Icon, MessageSquareIcon, UsersIcon, XIcon, ShieldIcon, UnlockIcon, LockIcon, UserIcon, SearchIcon, AlertCircleIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { useAuth } from "@clerk/clerk-react";
 import { Channel, Chat, MessageInput, MessageList, Thread, Window } from "stream-chat-react";
 import { sessionApi } from "../api/sessions";
 import AIFeedbackModal from "./AIFeedbackModal";
@@ -14,8 +15,11 @@ import AIFeedbackModal from "./AIFeedbackModal";
 import "@stream-io/video-react-sdk/dist/css/styles.css";
 import "stream-chat-react/dist/css/v2/index.css";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, maxParticipants, hasTabSwitchPermission, session, code, language }) {
   const navigate = useNavigate();
+  const { getToken } = useAuth();
   const { useCallCallingState, useParticipants } = useCallStateHooks();
   const callingState = useCallCallingState();
   const videoParticipants = useParticipants();
@@ -48,12 +52,12 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
 
   // Handle leave — show AI feedback first, then navigate
   const handleLeave = async () => {
-    // HR just leaves directly, no feedback needed
     if (isHR) {
       try {
-        await fetch(`https://talent-talk.onrender.com/api/sessions/${sessionId}/leave`, {
+        const token = await getToken();
+        await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/leave`, {
           method: 'POST',
-          credentials: 'include'
+          headers: { Authorization: `Bearer ${token}` },
         });
       } catch (err) {
         console.error('Leave session error:', err);
@@ -81,12 +85,12 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
     }
   };
 
-  // Called when user clicks "Leave Session" inside the modal
   const confirmLeave = async () => {
     try {
-      await fetch(`https://talent-talk.onrender.com/api/sessions/${sessionId}/leave`, {
+      const token = await getToken();
+      await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/leave`, {
         method: 'POST',
-        credentials: 'include'
+        headers: { Authorization: `Bearer ${token}` },
       });
     } catch (err) {
       console.error('Leave session error:', err);
@@ -102,19 +106,22 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
 
     setActionLoading(participantId);
     try {
-      const response = await fetch(`https://talent-talk.onrender.com/api/sessions/${sessionId}/grant-permission`, {
+      const token = await getToken();
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/grant-permission`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          userId: participantId, 
-          permission: action ? 'grant' : 'revoke' 
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userId: participantId,
+          permission: action ? 'grant' : 'revoke'
         })
       });
-      
+
       if (response.ok) {
-        setParticipantsData(prev => prev.map(p => 
-          p.id === participantId 
+        setParticipantsData(prev => prev.map(p =>
+          p.id === participantId
             ? { ...p, tabSwitchAllowed: action }
             : p
         ));
@@ -175,7 +182,6 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
   return (
     <div className="h-full flex gap-3 relative str-video">
       <div className="flex-1 flex flex-col gap-3">
-        {/* Participants count badge and Controls */}
         <div className="flex items-center justify-between gap-2 bg-base-100 p-3 rounded-lg shadow">
           <div className="flex items-center gap-2">
             <UsersIcon className="w-5 h-5 text-primary" />
@@ -188,24 +194,22 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
               </div>
             )}
           </div>
-          
+
           <div className="flex items-center gap-2">
             {isHR && (
               <button
                 onClick={() => setIsManagingPermissions(!isManagingPermissions)}
                 className={`btn btn-sm gap-2 ${isManagingPermissions ? 'btn-warning' : 'btn-info'}`}
-                title="Manage participant permissions"
               >
                 <ShieldIcon className="size-4" />
                 {isManagingPermissions ? 'Managing Permissions' : 'HR Controls'}
               </button>
             )}
-            
+
             {chatClient && channel && (
               <button
                 onClick={() => setIsChatOpen(!isChatOpen)}
                 className={`btn btn-sm gap-2 ${isChatOpen ? "btn-primary" : "btn-ghost"}`}
-                title={isChatOpen ? "Hide chat" : "Show chat"}
               >
                 <MessageSquareIcon className="size-4" />
                 Chat
@@ -223,18 +227,13 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
                 <h3 className="font-semibold text-warning-content">HR Permission Management</h3>
               </div>
               <div className="flex items-center gap-2">
-                <span className="badge badge-sm badge-warning">
-                  {participantsData.length} Participants
-                </span>
-                <button
-                  onClick={() => setIsManagingPermissions(false)}
-                  className="btn btn-ghost btn-sm"
-                >
+                <span className="badge badge-sm badge-warning">{participantsData.length} Participants</span>
+                <button onClick={() => setIsManagingPermissions(false)} className="btn btn-ghost btn-sm">
                   <XIcon className="size-4" />
                 </button>
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -247,28 +246,12 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <button
-                  onClick={() => handleBulkPermission(true)}
-                  disabled={actionLoading === 'bulk'}
-                  className="btn btn-success btn-sm gap-2"
-                >
-                  {actionLoading === 'bulk' ? (
-                    <Loader2Icon className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <UnlockIcon className="size-4" />
-                  )}
+                <button onClick={() => handleBulkPermission(true)} disabled={actionLoading === 'bulk'} className="btn btn-success btn-sm gap-2">
+                  {actionLoading === 'bulk' ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <UnlockIcon className="size-4" />}
                   Allow All
                 </button>
-                <button
-                  onClick={() => handleBulkPermission(false)}
-                  disabled={actionLoading === 'bulk'}
-                  className="btn btn-error btn-sm gap-2"
-                >
-                  {actionLoading === 'bulk' ? (
-                    <Loader2Icon className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <LockIcon className="size-4" />
-                  )}
+                <button onClick={() => handleBulkPermission(false)} disabled={actionLoading === 'bulk'} className="btn btn-error btn-sm gap-2">
+                  {actionLoading === 'bulk' ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <LockIcon className="size-4" />}
                   Revoke All
                 </button>
               </div>
@@ -287,11 +270,7 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
                         <div className="avatar">
                           <div className="w-10 h-10 rounded-full bg-primary text-primary-content flex items-center justify-center text-sm">
                             {participant.profileImage ? (
-                              <img 
-                                src={participant.profileImage} 
-                                alt={participant.name} 
-                                className="rounded-full w-full h-full object-cover"
-                              />
+                              <img src={participant.profileImage} alt={participant.name} className="rounded-full w-full h-full object-cover" />
                             ) : (
                               <UserIcon className="w-5 h-5" />
                             )}
@@ -300,48 +279,27 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-sm truncate">{participant.name}</p>
-                            {participant.isOnline && (
-                              <div className="w-2 h-2 bg-success rounded-full" title="Online"></div>
-                            )}
+                            {participant.isOnline && <div className="w-2 h-2 bg-success rounded-full" title="Online" />}
                           </div>
                           <p className="text-xs opacity-70 truncate">{participant.email}</p>
                           {participant.violations.length > 0 && (
-                            <p className="text-xs text-error">
-                              {participant.violations.length} violation(s)
-                            </p>
+                            <p className="text-xs text-error">{participant.violations.length} violation(s)</p>
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-2">
                         <div className={`badge badge-sm ${participant.tabSwitchAllowed ? 'badge-success' : 'badge-warning'}`}>
                           {participant.tabSwitchAllowed ? 'Allowed' : 'Restricted'}
                         </div>
-                        
                         {participant.tabSwitchAllowed ? (
-                          <button
-                            onClick={() => handlePermissionAction(participant.id, false)}
-                            disabled={actionLoading === participant.id}
-                            className="btn btn-error btn-xs gap-1"
-                          >
-                            {actionLoading === participant.id ? (
-                              <Loader2Icon className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <LockIcon className="w-3 h-3" />
-                            )}
+                          <button onClick={() => handlePermissionAction(participant.id, false)} disabled={actionLoading === participant.id} className="btn btn-error btn-xs gap-1">
+                            {actionLoading === participant.id ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <LockIcon className="w-3 h-3" />}
                             Revoke
                           </button>
                         ) : (
-                          <button
-                            onClick={() => handlePermissionAction(participant.id, true)}
-                            disabled={actionLoading === participant.id}
-                            className="btn btn-success btn-xs gap-1"
-                          >
-                            {actionLoading === participant.id ? (
-                              <Loader2Icon className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <UnlockIcon className="w-3 h-3" />
-                            )}
+                          <button onClick={() => handlePermissionAction(participant.id, true)} disabled={actionLoading === participant.id} className="btn btn-success btn-xs gap-1">
+                            {actionLoading === participant.id ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <UnlockIcon className="w-3 h-3" />}
                             Allow
                           </button>
                         )}
@@ -382,20 +340,12 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
 
       {/* CHAT SECTION */}
       {chatClient && channel && (
-        <div
-          className={`flex flex-col rounded-lg shadow overflow-hidden bg-[#272a30] transition-all duration-300 ease-in-out ${
-            isChatOpen ? "w-80 opacity-100" : "w-0 opacity-0"
-          }`}
-        >
+        <div className={`flex flex-col rounded-lg shadow overflow-hidden bg-[#272a30] transition-all duration-300 ease-in-out ${isChatOpen ? "w-80 opacity-100" : "w-0 opacity-0"}`}>
           {isChatOpen && (
             <>
               <div className="bg-[#1c1e22] p-3 border-b border-[#3a3d44] flex items-center justify-between">
                 <h3 className="font-semibold text-white">Session Chat</h3>
-                <button
-                  onClick={() => setIsChatOpen(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="Close chat"
-                >
+                <button onClick={() => setIsChatOpen(false)} className="text-gray-400 hover:text-white transition-colors">
                   <XIcon className="size-5" />
                 </button>
               </div>
@@ -415,13 +365,14 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
         </div>
       )}
 
-      {/* AI FEEDBACK MODAL — for participants on leave */}
+      {/* AI FEEDBACK MODAL */}
       <AIFeedbackModal
         isOpen={showFeedbackModal}
         onClose={() => setShowFeedbackModal(false)}
         feedback={aiFeedback}
         isLoading={feedbackLoading}
         onConfirmEnd={confirmLeave}
+        isParticipant={true}
       />
     </div>
   );

@@ -93,36 +93,29 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
   // Add bot detection
   const { violations: botViolations } = useBotDetection(id, isHR);
 
-  // Check tab switch permission from backend - with real-time updates
-  const checkTabSwitchPermission = async () => {
-    if (!session || !user || isHR || session.status !== "active") return;
+
+  useEffect(() => {
+  if (!session || !user || isHR || session.status !== "active") return;
+  
+  const check = async () => {
     try {
-      const token = await getToken(); // ✅ add token
-      const response = await fetch(
-        `${API_BASE_URL}/sessions/${id}/tab-permission`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // ✅
-          },
-          credentials: "include",
-        },
-      );
+      const token = await getToken();
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${id}/tab-permission`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.ok) {
         const data = await response.json();
-        if (data.hasPermission !== hasTabSwitchPermission) {
-          setHasTabSwitchPermission(data.hasPermission);
-        }
+        setHasTabSwitchPermission(data.hasPermission ?? false);
       }
     } catch (error) {
       console.error("Error checking tab switch permission:", error);
     }
   };
-  useEffect(() => {
-    if (!session || !user || isHR || session.status !== "active") return;
-    checkTabSwitchPermission();
-    const intervalId = setInterval(checkTabSwitchPermission, 3000);
-    return () => clearInterval(intervalId);
-  }, [session?.status, id, isHR]);
+
+  check();
+  const intervalId = setInterval(check, 3000);
+  return () => clearInterval(intervalId);
+}, [session?.status, id, isHR, user?.id]);
   // Sync localStorage changes across tabs (storage event)
   useEffect(() => {
     const onStorage = (e) => {
@@ -176,7 +169,7 @@ const [feedbackLoading, setFeedbackLoading] = useState(false);
 
           // server log (fire-and-forget)
           getToken().then(token => {
-  fetch(`${API_BASE_URL}/sessions/${id}/violation`, {
+  fetch(`${API_BASE_URL}/api/sessions/${id}/violation`, {
     method: "POST",
     headers: { 
       "Content-Type": "application/json",
