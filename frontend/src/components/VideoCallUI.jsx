@@ -55,7 +55,7 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
     if (isHR) {
       try {
         const token = await getToken();
-        await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/leave`, {
+        await fetch(`${API_BASE_URL}/sessions/${sessionId}/leave`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -88,7 +88,7 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
   const confirmLeave = async () => {
     try {
       const token = await getToken();
-      await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/leave`, {
+      await fetch(`${API_BASE_URL}/sessions/${sessionId}/leave`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -107,7 +107,7 @@ function VideoCallUI({ chatClient, channel, isHR, sessionId, participantCount, m
     setActionLoading(participantId);
     try {
       const token = await getToken();
-      const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/grant-permission`, {
+      const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/grant-permission`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
