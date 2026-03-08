@@ -2,7 +2,6 @@ import {
   CallControls,
   CallingState,
   SpeakerLayout,
-  useCallStateHooks,
   useCallStateHooks, useCall
 } from "@stream-io/video-react-sdk";
 import { Loader2Icon, MessageSquareIcon, UsersIcon, XIcon, ShieldIcon, UnlockIcon, LockIcon, UserIcon, SearchIcon, AlertCircleIcon } from "lucide-react";
