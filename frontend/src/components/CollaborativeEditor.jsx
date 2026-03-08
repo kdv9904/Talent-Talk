@@ -16,7 +16,6 @@ function CollaborativeEditor({ language, onCodeChange, options = {} }) {
   useEffect(() => {
     if (!room || !editorRef.current) return;
 
-    // Create Yjs document and Liveblocks provider
     const doc = new Y.Doc();
     const provider = new LiveblocksYjsProvider(room, doc);
     const yText = doc.getText("monaco");
