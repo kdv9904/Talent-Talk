@@ -235,39 +235,48 @@ function VideoCallUI({
   }
 
   const startLocalRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true,
-      });
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: true,
+    });
 
-      const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
-      const chunks = [];
+    const chunks = [];
+    const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunks.push(e.data);
+    };
 
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "video/webm" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `session-${sessionId}-${Date.now()}.webm`;
-        a.click();
-        URL.revokeObjectURL(url);
+    recorder.onstop = () => {
+      if (chunks.length === 0) {
+        alert("❌ No recording data captured.");
         stream.getTracks().forEach((track) => track.stop());
         setIsRecording(false);
-      };
+        return;
+      }
 
-      recorder.start();
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Recording failed:", err);
-      alert("❌ Recording failed. Please allow screen sharing.");
-    }
-  };
+      const blob = new Blob(chunks, { type: "video/webm" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `session-${sessionId}-${Date.now()}.webm`;
+      document.body.appendChild(a); // ← required in some browsers
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      stream.getTracks().forEach((track) => track.stop());
+      setIsRecording(false);
+    };
+
+    recorder.start(1000); // ← timeslice: fires ondataavailable every 1 second
+    setMediaRecorder(recorder);
+    setIsRecording(true);
+  } catch (err) {
+    console.error("Recording failed:", err);
+    alert("❌ Recording failed. Please allow screen sharing.");
+  }
+};
 
   const stopLocalRecording = () => {
     if (mediaRecorder) {
