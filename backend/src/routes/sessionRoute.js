@@ -28,7 +28,7 @@ router.get("/my-recent", protectRoute, getMyRecentSessions);
 router.get("/:id/security", protectRoute, getSessionSecurityConfig);
 router.get("/:id/tab-permission", protectRoute, checkTabSwitchPermission);
 router.post("/:id/leave", protectRoute, leaveSession);
-router.get("/:id/recordings", protectroute, getSessionRecordings);
+router.get("/:id/recordings", protectRoute, getSessionRecordings);
 // HR specific routes
 router.get("/admin/all-sessions", protectRoute, requireHR, getAllSessions);
 router.post("/:id/hr-join", protectRoute, requireHR, joinSessionAsHR);
