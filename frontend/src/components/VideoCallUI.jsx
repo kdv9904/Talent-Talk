@@ -62,6 +62,8 @@ function VideoCallUI({
   const [participantsData, setParticipantsData] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+
 
   // AI Feedback state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -167,70 +169,55 @@ useEffect(() => {
 };
 
 const handleRecording = async () => {
-  console.log("🎬 handleRecording called");
-  console.log("📞 call:", call);
-  console.log("📞 typeof startRecording:", typeof call?.startRecording);
-
-  if (!call) {
-    console.error("❌ call is null/undefined - cannot record");
-    alert("❌ Call not initialized");
-    return;
-  }
-
-  if (!call.startRecording) {
-    console.error("❌ call.startRecording does not exist on this call object");
-    alert("❌ Recording not supported on this call");
-    return;
-  }
-
   try {
     if (isRecording) {
-      console.log("⏹️ Stopping recording...");
-
-      // race against 10s timeout
-      const result = await Promise.race([
-        call.stopRecording(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("stopRecording timed out after 10s")), 10000)
-        ),
-      ]);
-
-      console.log("✅ stopRecording resolved:", result);
+      // stop local screen recording → auto downloads .webm
+      if (mediaRecorder) {
+        mediaRecorder.requestData();
+        mediaRecorder.stop();
+        setMediaRecorder(null);
+      }
+      // stop stream cloud recording
+      await call.stopRecording();
       setIsRecording(false);
-      setIsProcessingRecording(true);
-      pollAndDownload();
 
     } else {
-      console.log("▶️ Calling call.startRecording()...");
-       console.log("📞 call.id:", call.id);
-  console.log("📞 call.type:", call.type);
-  console.log("📞 callingState:", callingState);
-  
-  // test if the call is actually joined
-  console.log("📞 call.state.callingState:", call.state.callingState);
+      // ask HR to share screen
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { mediaSource: "screen" },
+        audio: true,
+      });
 
-  const recordingPromise = call.startRecording();
-  console.log("📞 startRecording promise created:", recordingPromise);
-  
-  recordingPromise
-    .then(r => console.log("✅ startRecording then:", r))
-    .catch(e => console.error("❌ startRecording catch:", e));
+      const chunks = [];
+      const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
 
-  const result = await Promise.race([
-    recordingPromise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("startRecording timed out after 10s")), 10000)
-    ),
-  ]);
+      recorder.ondataavailable = (e) => {
+        if (e.data?.size > 0) chunks.push(e.data);
+      };
 
-  console.log("✅ startRecording resolved:", result);
-  setIsRecording(true);
+      recorder.onstop = () => {
+        if (chunks.length === 0) return;
+        const blob = new Blob(chunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `session-${sessionId}-${Date.now()}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        stream.getTracks().forEach((t) => t.stop());
+      };
 
+      recorder.start(1000);
+      setMediaRecorder(recorder);
+
+      // also start stream cloud recording as backup
+      await call.startRecording();
+      setIsRecording(true);
     }
   } catch (err) {
-    console.error("❌ Recording error name:", err.name);
-    console.error("❌ Recording error message:", err.message);
-    console.error("❌ Recording full error:", err);
+    console.error("Recording error:", err);
     alert(`❌ Recording failed: ${err.message}`);
   }
 };
@@ -608,30 +595,15 @@ const handleRecording = async () => {
         <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center items-center gap-3">
           <CallControls onLeave={handleLeave} />
 
-          {(isHR || isAdmin) && !roleLoading && (
+  {(isHR || isAdmin) && !roleLoading && (
   <button
-    onClick={() => {
-      console.log("🖱️ Record button clicked!");
-      console.log("isHR:", isHR, "isAdmin:", isAdmin);
-      console.log("isRecording:", isRecording);
-      console.log("isProcessingRecording:", isProcessingRecording);
-      handleRecording();
-    }}
-    disabled={isProcessingRecording}
+    onClick={handleRecording}
     className={`btn btn-sm gap-2 ${
-      isRecording
-        ? "btn-error animate-pulse"
-        : isProcessingRecording
-        ? "btn-warning"
-        : "btn-ghost border border-base-300"
+      isRecording ? "btn-error animate-pulse" : "btn-ghost border border-base-300"
     }`}
   >
-    {isProcessingRecording ? (
-      <Loader2Icon className="w-3 h-3 animate-spin" />
-    ) : (
-      <span className={`w-3 h-3 rounded-full ${isRecording ? "bg-white" : "bg-error"}`} />
-    )}
-    {isRecording ? "Stop" : isProcessingRecording ? "Processing..." : "Record"}
+    <span className={`w-3 h-3 rounded-full ${isRecording ? "bg-white" : "bg-error"}`} />
+    {isRecording ? "Stop" : "Record"}
   </button>
 )}
         </div>
