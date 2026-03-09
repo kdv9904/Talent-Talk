@@ -80,6 +80,12 @@ function VideoCallUI({
   console.log("📞 stopRecording fn exists:", typeof call?.stopRecording);
 }, [call]);
 
+useEffect(() => {
+  if (call) {
+    console.log("🎯 ownCapabilities:", call.state.ownCapabilities);
+  }
+}, [call]);
+
   useEffect(() => {
     if (isHR && session?.participants) {
       const formattedParticipants = session.participants.map((p) => ({
