@@ -72,6 +72,15 @@ function VideoCallUI({
   const [isProcessingRecording, setIsProcessingRecording] = useState(false);
 
   useEffect(() => {
+  console.log("📞 call object on mount:", call);
+  console.log("📞 call?.id:", call?.id);
+  console.log("📞 call?.type:", call?.type);
+  console.log("📞 call?.state:", call?.state);
+  console.log("📞 startRecording fn exists:", typeof call?.startRecording);
+  console.log("📞 stopRecording fn exists:", typeof call?.stopRecording);
+}, [call]);
+
+  useEffect(() => {
     if (isHR && session?.participants) {
       const formattedParticipants = session.participants.map((p) => ({
         id: p.user?._id,
@@ -151,37 +160,60 @@ function VideoCallUI({
 };
 
 const handleRecording = async () => {
-  console.log("🎬 handleRecording called, isRecording:", isRecording);
-  console.log("📞 call object:", call);
-  console.log("📞 call.id:", call?.id);
-  console.log("📞 call.type:", call?.type);
-  
+  console.log("🎬 handleRecording called");
+  console.log("📞 call:", call);
+  console.log("📞 typeof startRecording:", typeof call?.startRecording);
+
+  if (!call) {
+    console.error("❌ call is null/undefined - cannot record");
+    alert("❌ Call not initialized");
+    return;
+  }
+
+  if (!call.startRecording) {
+    console.error("❌ call.startRecording does not exist on this call object");
+    alert("❌ Recording not supported on this call");
+    return;
+  }
+
   try {
     if (isRecording) {
       console.log("⏹️ Stopping recording...");
-      await call.stopRecording();
-      console.log("✅ call.stopRecording() resolved successfully");
+
+      // race against 10s timeout
+      const result = await Promise.race([
+        call.stopRecording(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("stopRecording timed out after 10s")), 10000)
+        ),
+      ]);
+
+      console.log("✅ stopRecording resolved:", result);
       setIsRecording(false);
       setIsProcessingRecording(true);
-      console.log("🔄 Starting polling for download...");
       pollAndDownload();
+
     } else {
-      console.log("▶️ Starting recording...");
-      const result = await call.startRecording();
-      console.log("✅ call.startRecording() resolved:", result);
+      console.log("▶️ Calling call.startRecording()...");
+
+      // race against 10s timeout
+      const result = await Promise.race([
+        call.startRecording(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("startRecording timed out after 10s")), 10000)
+        ),
+      ]);
+
+      console.log("✅ startRecording resolved:", result);
       setIsRecording(true);
-      console.log("🔴 Recording is now active");
     }
   } catch (err) {
-    console.error("❌ Recording error:", err);
-    console.error("❌ Error name:", err.name);
-    console.error("❌ Error message:", err.message);
-    console.error("❌ Full error:", JSON.stringify(err, null, 2));
-    alert("❌ Recording failed. Check console.");
+    console.error("❌ Recording error name:", err.name);
+    console.error("❌ Recording error message:", err.message);
+    console.error("❌ Recording full error:", err);
+    alert(`❌ Recording failed: ${err.message}`);
   }
 };
-
-  // ── LEAVE ─────────────────────────────────────────────────────────────────
 
   const handleLeave = async () => {
     if (isHR) {
