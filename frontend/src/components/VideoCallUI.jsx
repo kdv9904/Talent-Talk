@@ -589,32 +589,31 @@ const handleRecording = async () => {
           <CallControls onLeave={handleLeave} />
 
           {(isHR || isAdmin) && (
-            <button
-              onClick={handleRecording}
-              disabled={isProcessingRecording}
-              className={`btn btn-sm gap-2 ${
-                isRecording
-                  ? "btn-error animate-pulse"
-                  : isProcessingRecording
-                  ? "btn-warning"
-                  : "btn-ghost border border-base-300"
-              }`}
-              title={
-                isRecording
-                  ? "Stop Recording"
-                  : isProcessingRecording
-                  ? "Processing recording..."
-                  : "Start Recording"
-              }
-            >
-              {isProcessingRecording ? (
-                <Loader2Icon className="w-3 h-3 animate-spin" />
-              ) : (
-                <span className={`w-3 h-3 rounded-full ${isRecording ? "bg-white" : "bg-error"}`} />
-              )}
-              {isRecording ? "Stop" : isProcessingRecording ? "Processing..." : "Record"}
-            </button>
-          )}
+  <button
+    onClick={() => {
+      console.log("🖱️ Record button clicked!");
+      console.log("isHR:", isHR, "isAdmin:", isAdmin);
+      console.log("isRecording:", isRecording);
+      console.log("isProcessingRecording:", isProcessingRecording);
+      handleRecording();
+    }}
+    disabled={isProcessingRecording}
+    className={`btn btn-sm gap-2 ${
+      isRecording
+        ? "btn-error animate-pulse"
+        : isProcessingRecording
+        ? "btn-warning"
+        : "btn-ghost border border-base-300"
+    }`}
+  >
+    {isProcessingRecording ? (
+      <Loader2Icon className="w-3 h-3 animate-spin" />
+    ) : (
+      <span className={`w-3 h-3 rounded-full ${isRecording ? "bg-white" : "bg-error"}`} />
+    )}
+    {isRecording ? "Stop" : isProcessingRecording ? "Processing..." : "Record"}
+  </button>
+)}
         </div>
       </div>
 
