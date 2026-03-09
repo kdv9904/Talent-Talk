@@ -201,17 +201,30 @@ const handleRecording = async () => {
 
     } else {
       console.log("▶️ Calling call.startRecording()...");
+       console.log("📞 call.id:", call.id);
+  console.log("📞 call.type:", call.type);
+  console.log("📞 callingState:", callingState);
+  
+  // test if the call is actually joined
+  console.log("📞 call.state.callingState:", call.state.callingState);
 
-      // race against 10s timeout
-      const result = await Promise.race([
-        call.startRecording(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("startRecording timed out after 10s")), 10000)
-        ),
-      ]);
+  const recordingPromise = call.startRecording();
+  console.log("📞 startRecording promise created:", recordingPromise);
+  
+  recordingPromise
+    .then(r => console.log("✅ startRecording then:", r))
+    .catch(e => console.error("❌ startRecording catch:", e));
 
-      console.log("✅ startRecording resolved:", result);
-      setIsRecording(true);
+  const result = await Promise.race([
+    recordingPromise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("startRecording timed out after 10s")), 10000)
+    ),
+  ]);
+
+  console.log("✅ startRecording resolved:", result);
+  setIsRecording(true);
+
     }
   } catch (err) {
     console.error("❌ Recording error name:", err.name);
