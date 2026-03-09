@@ -141,7 +141,7 @@ useEffect(() => {
     });
 
     const latest = recordings
-      .filter((r) => r.status === "available" && r.url)
+      .filter((r) => r.url)
       .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))[0];
 
     console.log("🎯 Latest available recording:", latest || "NONE FOUND");
