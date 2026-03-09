@@ -171,33 +171,58 @@ useEffect(() => {
 const handleRecording = async () => {
   try {
     if (isRecording) {
-      // stop local screen recording → auto downloads .webm
-      if (mediaRecorder) {
+      console.log("⏹️ Stopping recording...");
+
+      // stop local recording first — this triggers onstop → download
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        console.log("⏹️ mediaRecorder state:", mediaRecorder.state);
         mediaRecorder.requestData();
         mediaRecorder.stop();
         setMediaRecorder(null);
+      } else {
+        console.log("❌ mediaRecorder is null or inactive:", mediaRecorder?.state);
       }
-      // stop stream cloud recording
-      await call.stopRecording();
+
+      // stop stream cloud in background — don't await so it can't block
+      call.stopRecording().catch(console.error);
       setIsRecording(false);
 
     } else {
-      // ask HR to share screen
+      console.log("▶️ Starting recording...");
+
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { mediaSource: "screen" },
         audio: true,
       });
 
+      console.log("✅ Got display stream:", stream);
+
       const chunks = [];
-      const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+      
+      // try webm first, fallback to mp4
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : MediaRecorder.isTypeSupported("video/webm")
+        ? "video/webm"
+        : "video/mp4";
+
+      console.log("🎬 Using mimeType:", mimeType);
+
+      const recorder = new MediaRecorder(stream, { mimeType });
 
       recorder.ondataavailable = (e) => {
+        console.log("📦 data chunk:", e.data?.size);
         if (e.data?.size > 0) chunks.push(e.data);
       };
 
       recorder.onstop = () => {
-        if (chunks.length === 0) return;
-        const blob = new Blob(chunks, { type: "video/webm" });
+        console.log("🎬 recorder.onstop fired, chunks:", chunks.length);
+        if (chunks.length === 0) {
+          console.log("❌ No chunks");
+          return;
+        }
+        const blob = new Blob(chunks, { type: mimeType });
+        console.log("📦 blob size:", blob.size);
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -207,17 +232,31 @@ const handleRecording = async () => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         stream.getTracks().forEach((t) => t.stop());
+        console.log("✅ Download triggered");
+      };
+
+      // handle stream ending by user (clicking "Stop sharing" in browser)
+      stream.getVideoTracks()[0].onended = () => {
+        console.log("🛑 Screen share ended by user");
+        if (recorder.state !== "inactive") {
+          recorder.requestData();
+          recorder.stop();
+        }
+        call.stopRecording().catch(console.error);
+        setIsRecording(false);
+        setMediaRecorder(null);
       };
 
       recorder.start(1000);
+      console.log("✅ MediaRecorder started, state:", recorder.state);
       setMediaRecorder(recorder);
 
-      // also start stream cloud recording as backup
-      await call.startRecording();
+      // start stream cloud recording in background — don't block on it
+      call.startRecording().catch(console.error);
       setIsRecording(true);
     }
   } catch (err) {
-    console.error("Recording error:", err);
+    console.error("❌ Recording error:", err);
     alert(`❌ Recording failed: ${err.message}`);
   }
 };
