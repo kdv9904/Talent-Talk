@@ -36,7 +36,7 @@ function SessionPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useUser();
-  const { isHR, userRole, isAdmin } = useUserRole();
+  const { isHR, userRole, isAdmin, loading: roleLoading } = useUserRole();
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const { getToken } = useAuth();
@@ -727,6 +727,7 @@ const confirmEndSession = () => {
   maxParticipants={maxParticipants}
   hasTabSwitchPermission={hasTabSwitchPermission}
   session={session}
+  roleLoading={roleLoading}
   code={code}
   language={selectedLanguage}
 />

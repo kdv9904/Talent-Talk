@@ -44,6 +44,7 @@ function VideoCallUI({
   sessionId,
   participantCount,
   maxParticipants,
+  roleLoading,
   hasTabSwitchPermission,
   session,
   code,
@@ -607,7 +608,7 @@ const handleRecording = async () => {
         <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center items-center gap-3">
           <CallControls onLeave={handleLeave} />
 
-          {(isHR || isAdmin) && (
+          {(isHR || isAdmin) && !roleLoading && (
   <button
     onClick={() => {
       console.log("🖱️ Record button clicked!");

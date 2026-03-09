@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 
 export const useUserRole = () => {
   const { user } = useUser();
-  const [userRole, setUserRole] = useState("user");
+  const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const { getToken } = useAuth();
 
