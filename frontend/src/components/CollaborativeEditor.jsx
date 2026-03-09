@@ -10,31 +10,21 @@ function CollaborativeEditor({ language, onCodeChange, options = {} }) {
   // Read shared code from Liveblocks storage
   const code = useStorage((root) => root.code);
 
-  console.log("🔵 [Liveblocks] useStorage code value:", JSON.stringify(code));
-  console.log("🔵 [Liveblocks] others connected:", others.length, others.map(o => o.id));
-
   // Write shared code to Liveblocks storage
   const setCode = useMutation(({ storage }, newCode) => {
-    console.log("✏️ [Liveblocks] Writing to storage:", newCode?.slice(0, 50));
     storage.set("code", newCode);
-    console.log("✏️ [Liveblocks] Storage after set:", storage.get("code")?.slice(0, 50));
   }, []);
 
   // When remote storage changes, update Monaco editor content
   useEffect(() => {
-    console.log("🔄 [Liveblocks] code changed in storage:", JSON.stringify(code?.slice(0, 50)));
-    console.log("🔄 [Liveblocks] editorRef exists:", !!editorRef.current);
-
     if (!editorRef.current || code === undefined || code === null) {
       console.warn("⚠️ [Liveblocks] Skipping editor update - editor not ready or code is null/undefined");
       return;
     }
 
     const currentValue = editorRef.current.getValue();
-    console.log("🔄 [Liveblocks] currentValue vs storage code match:", currentValue === code);
 
     if (currentValue !== code) {
-      console.log("🔄 [Liveblocks] Updating editor with remote content");
       isRemoteUpdate.current = true;
       const position = editorRef.current.getPosition();
       editorRef.current.setValue(code);
@@ -44,9 +34,7 @@ function CollaborativeEditor({ language, onCodeChange, options = {} }) {
   }, [code]);
 
   const handleEditorMount = (editor) => {
-    console.log("🟢 [Liveblocks] Editor mounted");
     editorRef.current = editor;
-    console.log("🟢 [Liveblocks] code in storage at mount time:", JSON.stringify(code?.slice(0, 50)));
 
     if (code !== undefined && code !== null && code !== "") {
       console.log("🟢 [Liveblocks] Setting initial value from storage");

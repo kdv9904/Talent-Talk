@@ -1,10 +1,11 @@
 import {
-  CallControls,
-  CallingState,
-  SpeakerLayout,
-  useCallStateHooks,
-  useCall,
+  CancelCallButton,
+  SpeakingWhileMutedNotification,
+  ToggleAudioPublishingButton,
+  ToggleVideoPublishingButton,
+  ScreenShareButton,
 } from "@stream-io/video-react-sdk";
+
 import {
   Loader2Icon,
   MessageSquareIcon,
@@ -72,22 +73,7 @@ function VideoCallUI({
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
-  const [isProcessingRecording, setIsProcessingRecording] = useState(false);
 
-  useEffect(() => {
-  console.log("📞 call object on mount:", call);
-  console.log("📞 call?.id:", call?.id);
-  console.log("📞 call?.type:", call?.type);
-  console.log("📞 call?.state:", call?.state);
-  console.log("📞 startRecording fn exists:", typeof call?.startRecording);
-  console.log("📞 stopRecording fn exists:", typeof call?.stopRecording);
-}, [call]);
-
-useEffect(() => {
-  if (call) {
-    console.log("🎯 ownCapabilities:", call.state.ownCapabilities);
-  }
-}, [call]);
 
   useEffect(() => {
     if (isHR && session?.participants) {
@@ -105,77 +91,13 @@ useEffect(() => {
     }
   }, [isHR, session]);
 
-  const pollAndDownload = async (retries = 12) => {
-  console.log(`🔄 Polling for recording... attempts left: ${retries}`);
-  
-  if (retries === 0) {
-    console.log("❌ Polling exhausted - recording not available after all retries");
-    setIsProcessingRecording(false);
-    alert("⚠️ Recording is taking too long to process. Check the Stream dashboard.");
-    return;
-  }
-
-  try {
-    const token = await getToken();
-    console.log("🔑 Got auth token for polling");
-    
-    const res = await fetch(
-      `${API_BASE_URL}/sessions/${sessionId}/recordings`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    
-    console.log("📡 Poll response status:", res.status);
-    
-    const data = await res.json();
-    console.log("📦 Raw recordings data:", JSON.stringify(data, null, 2));
-    
-    const recordings = data.recordings || [];
-    console.log(`📹 Total recordings found: ${recordings.length}`);
-    
-    recordings.forEach((r, i) => {
-      console.log(`  Recording [${i}]:`, {
-        id: r.id,
-        status: r.status,
-        url: r.url,
-        start_time: r.start_time,
-        end_time: r.end_time,
-      });
-    });
-
-    const latest = recordings
-      .filter((r) => r.url)
-      .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))[0];
-
-    console.log("🎯 Latest available recording:", latest || "NONE FOUND");
-
-    if (latest?.url) {
-      console.log("✅ Recording ready! Starting download from:", latest.url);
-      setIsProcessingRecording(false);
-      const a = document.createElement("a");
-      a.href = latest.url;
-      a.download = `session-${sessionId}-${Date.now()}.mp4`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      console.log("⬇️ Download triggered successfully");
-    } else {
-      console.log(`⏳ Recording not ready yet, retrying in 5s... (${retries - 1} retries left)`);
-      setTimeout(() => pollAndDownload(retries - 1), 5000);
-    }
-  } catch (err) {
-    console.error("❌ Poll fetch error:", err);
-    setTimeout(() => pollAndDownload(retries - 1), 5000);
-  }
-};
 
 const handleRecording = async () => {
   try {
     if (isRecording) {
-      console.log("⏹️ Stopping recording...");
 
       // stop local recording first — this triggers onstop → download
       if (mediaRecorder && mediaRecorder.state !== "inactive") {
-        console.log("⏹️ mediaRecorder state:", mediaRecorder.state);
         mediaRecorder.requestData();
         mediaRecorder.stop();
         setMediaRecorder(null);
@@ -188,14 +110,12 @@ const handleRecording = async () => {
       setIsRecording(false);
 
     } else {
-      console.log("▶️ Starting recording...");
 
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { mediaSource: "screen" },
         audio: true,
       });
 
-      console.log("✅ Got display stream:", stream);
 
       const chunks = [];
       
@@ -206,23 +126,17 @@ const handleRecording = async () => {
         ? "video/webm"
         : "video/mp4";
 
-      console.log("🎬 Using mimeType:", mimeType);
-
       const recorder = new MediaRecorder(stream, { mimeType });
 
       recorder.ondataavailable = (e) => {
-        console.log("📦 data chunk:", e.data?.size);
         if (e.data?.size > 0) chunks.push(e.data);
       };
 
       recorder.onstop = () => {
-        console.log("🎬 recorder.onstop fired, chunks:", chunks.length);
         if (chunks.length === 0) {
-          console.log("❌ No chunks");
           return;
         }
         const blob = new Blob(chunks, { type: mimeType });
-        console.log("📦 blob size:", blob.size);
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -232,12 +146,10 @@ const handleRecording = async () => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         stream.getTracks().forEach((t) => t.stop());
-        console.log("✅ Download triggered");
       };
 
       // handle stream ending by user (clicking "Stop sharing" in browser)
       stream.getVideoTracks()[0].onended = () => {
-        console.log("🛑 Screen share ended by user");
         if (recorder.state !== "inactive") {
           recorder.requestData();
           recorder.stop();
@@ -248,7 +160,6 @@ const handleRecording = async () => {
       };
 
       recorder.start(1000);
-      console.log("✅ MediaRecorder started, state:", recorder.state);
       setMediaRecorder(recorder);
 
       // start stream cloud recording in background — don't block on it
@@ -419,13 +330,6 @@ const handleRecording = async () => {
               <div className="flex items-center gap-1 badge badge-error badge-sm animate-pulse">
                 <span className="w-2 h-2 bg-white rounded-full inline-block" />
                 Recording
-              </div>
-            )}
-
-            {isProcessingRecording && (
-              <div className="flex items-center gap-1 badge badge-warning badge-sm animate-pulse">
-                <Loader2Icon className="w-3 h-3 animate-spin" />
-                Processing...
               </div>
             )}
 
@@ -632,7 +536,13 @@ const handleRecording = async () => {
 
         {/* BOTTOM CONTROLS */}
         <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center items-center gap-3">
-          <CallControls onLeave={handleLeave} />
+          <div className="flex items-center gap-2">
+  <ToggleAudioPublishingButton />
+  <ToggleVideoPublishingButton />
+  <ScreenShareButton />
+  <SpeakingWhileMutedNotification />
+  <CancelCallButton onLeave={handleLeave} />
+</div>
 
   {(isHR || isAdmin) && !roleLoading && (
   <button
