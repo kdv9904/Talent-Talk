@@ -87,61 +87,99 @@ function VideoCallUI({
     }
   }, [isHR, session]);
 
-  // ── RECORDING ─────────────────────────────────────────────────────────────
-
   const pollAndDownload = async (retries = 12) => {
-    if (retries === 0) {
+  console.log(`🔄 Polling for recording... attempts left: ${retries}`);
+  
+  if (retries === 0) {
+    console.log("❌ Polling exhausted - recording not available after all retries");
+    setIsProcessingRecording(false);
+    alert("⚠️ Recording is taking too long to process. Check the Stream dashboard.");
+    return;
+  }
+
+  try {
+    const token = await getToken();
+    console.log("🔑 Got auth token for polling");
+    
+    const res = await fetch(
+      `${API_BASE_URL}/sessions/${sessionId}/recordings`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    
+    console.log("📡 Poll response status:", res.status);
+    
+    const data = await res.json();
+    console.log("📦 Raw recordings data:", JSON.stringify(data, null, 2));
+    
+    const recordings = data.recordings || [];
+    console.log(`📹 Total recordings found: ${recordings.length}`);
+    
+    recordings.forEach((r, i) => {
+      console.log(`  Recording [${i}]:`, {
+        id: r.id,
+        status: r.status,
+        url: r.url,
+        start_time: r.start_time,
+        end_time: r.end_time,
+      });
+    });
+
+    const latest = recordings
+      .filter((r) => r.status === "available" && r.url)
+      .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))[0];
+
+    console.log("🎯 Latest available recording:", latest || "NONE FOUND");
+
+    if (latest?.url) {
+      console.log("✅ Recording ready! Starting download from:", latest.url);
       setIsProcessingRecording(false);
-      alert("⚠️ Recording is taking too long to process. Check the Stream dashboard.");
-      return;
-    }
-
-    try {
-      const token = await getToken();
-      const res = await fetch(
-        `${API_BASE_URL}/sessions/${sessionId}/recordings`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const data = await res.json();
-      const recordings = data.recordings || [];
-
-      const latest = recordings
-        .filter((r) => r.status === "available" && r.url)
-        .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))[0];
-
-      if (latest?.url) {
-        setIsProcessingRecording(false);
-        const a = document.createElement("a");
-        a.href = latest.url;
-        a.download = `session-${sessionId}-${Date.now()}.mp4`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } else {
-        setTimeout(() => pollAndDownload(retries - 1), 5000);
-      }
-    } catch (err) {
-      console.error("Poll error:", err);
+      const a = document.createElement("a");
+      a.href = latest.url;
+      a.download = `session-${sessionId}-${Date.now()}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      console.log("⬇️ Download triggered successfully");
+    } else {
+      console.log(`⏳ Recording not ready yet, retrying in 5s... (${retries - 1} retries left)`);
       setTimeout(() => pollAndDownload(retries - 1), 5000);
     }
-  };
+  } catch (err) {
+    console.error("❌ Poll fetch error:", err);
+    setTimeout(() => pollAndDownload(retries - 1), 5000);
+  }
+};
 
-  const handleRecording = async () => {
-    try {
-      if (isRecording) {
-        await call.stopRecording();
-        setIsRecording(false);
-        setIsProcessingRecording(true);
-        pollAndDownload();
-      } else {
-        await call.startRecording();
-        setIsRecording(true);
-      }
-    } catch (err) {
-      console.error("Recording error:", err);
-      alert("❌ Recording failed. Check console.");
+const handleRecording = async () => {
+  console.log("🎬 handleRecording called, isRecording:", isRecording);
+  console.log("📞 call object:", call);
+  console.log("📞 call.id:", call?.id);
+  console.log("📞 call.type:", call?.type);
+  
+  try {
+    if (isRecording) {
+      console.log("⏹️ Stopping recording...");
+      await call.stopRecording();
+      console.log("✅ call.stopRecording() resolved successfully");
+      setIsRecording(false);
+      setIsProcessingRecording(true);
+      console.log("🔄 Starting polling for download...");
+      pollAndDownload();
+    } else {
+      console.log("▶️ Starting recording...");
+      const result = await call.startRecording();
+      console.log("✅ call.startRecording() resolved:", result);
+      setIsRecording(true);
+      console.log("🔴 Recording is now active");
     }
-  };
+  } catch (err) {
+    console.error("❌ Recording error:", err);
+    console.error("❌ Error name:", err.name);
+    console.error("❌ Error message:", err.message);
+    console.error("❌ Full error:", JSON.stringify(err, null, 2));
+    alert("❌ Recording failed. Check console.");
+  }
+};
 
   // ── LEAVE ─────────────────────────────────────────────────────────────────
 

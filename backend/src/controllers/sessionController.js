@@ -689,17 +689,29 @@ Analyze this code and respond ONLY with a raw JSON object. No markdown, no backt
 
 export async function getSessionRecordings(req, res) {
   try {
+    console.log("📡 getSessionRecordings called for session:", req.params.id);
+    
     const session = await Session.findById(req.params.id);
-    if (!session) return res.status(404).json({ message: "Session not found" });
+    if (!session) {
+      console.log("❌ Session not found:", req.params.id);
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    console.log("✅ Session found, callId:", session.callId);
+    console.log("🔑 Using Stream API Key:", process.env.STREAM_API_KEY?.slice(0, 8) + "...");
 
     const response = await streamClient.video.listRecordings({
       call_type: "default",
       call_id: session.callId,
     });
 
+    console.log("📦 Stream listRecordings raw response:", JSON.stringify(response, null, 2));
+    console.log("📹 Recordings count:", response.recordings?.length || 0);
+
     res.json({ recordings: response.recordings || [] });
   } catch (err) {
-    console.error("Fetch recordings error:", err);
+    console.error("❌ Fetch recordings error:", err.message);
+    console.error("❌ Full error:", err);
     res.status(500).json({ message: "Failed to fetch recordings" });
   }
 }
