@@ -46,11 +46,9 @@ function CollaborativeEditor({ language, onCodeChange, options = {} }) {
 
   const handleChange = (value) => {
     if (isRemoteUpdate.current) {
-      console.log("🚫 [Liveblocks] Skipping handleChange - is remote update");
       return;
     }
     const newCode = value || "";
-    console.log("⌨️ [Liveblocks] Local change, writing to storage:", newCode?.slice(0, 30));
     setCode(newCode);
     onCodeChange?.(newCode);
   };

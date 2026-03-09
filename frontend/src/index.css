@@ -9,3 +9,8 @@
         cursor:pointer;
     }
 }
+
+[data-liveblocks-portal] > div:last-child,
+.liveblocks-watermark {
+  display: none !important;
+}
