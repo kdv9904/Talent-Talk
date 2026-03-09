@@ -700,10 +700,9 @@ export async function getSessionRecordings(req, res) {
     console.log("✅ Session found, callId:", session.callId);
     console.log("🔑 Using Stream API Key:", process.env.STREAM_API_KEY?.slice(0, 8) + "...");
 
-    const response = await streamClient.video.listRecordings({
-      call_type: "default",
-      call_id: session.callId,
-    });
+    const response = await streamClient.video
+  .call("default", session.callId)
+  .listRecordings();
 
     console.log("📦 Stream listRecordings raw response:", JSON.stringify(response, null, 2));
     console.log("📹 Recordings count:", response.recordings?.length || 0);
