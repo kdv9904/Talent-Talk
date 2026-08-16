@@ -96,85 +96,85 @@ function VideoCallUI({
   }, [isHR, session]);
 
 
-const handleRecording = async () => {
-  try {
-    if (isRecording) {
+  const handleRecording = async () => {
+    try {
+      if (isRecording) {
 
-      // stop local recording first — this triggers onstop → download
-      if (mediaRecorder && mediaRecorder.state !== "inactive") {
-        mediaRecorder.requestData();
-        mediaRecorder.stop();
-        setMediaRecorder(null);
-      } else {
-        console.log("❌ mediaRecorder is null or inactive:", mediaRecorder?.state);
-      }
-
-      // stop stream cloud in background — don't await so it can't block
-      call.stopRecording().catch(console.error);
-      setIsRecording(false);
-
-    } else {
-
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { mediaSource: "screen" },
-        audio: true,
-      });
-
-
-      const chunks = [];
-      
-      // try webm first, fallback to mp4
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
-        : MediaRecorder.isTypeSupported("video/webm")
-        ? "video/webm"
-        : "video/mp4";
-
-      const recorder = new MediaRecorder(stream, { mimeType });
-
-      recorder.ondataavailable = (e) => {
-        if (e.data?.size > 0) chunks.push(e.data);
-      };
-
-      recorder.onstop = () => {
-        if (chunks.length === 0) {
-          return;
+        // stop local recording first — this triggers onstop → download
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.requestData();
+          mediaRecorder.stop();
+          setMediaRecorder(null);
+        } else {
+          console.log("❌ mediaRecorder is null or inactive:", mediaRecorder?.state);
         }
-        const blob = new Blob(chunks, { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `session-${sessionId}-${Date.now()}.webm`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        stream.getTracks().forEach((t) => t.stop());
-      };
 
-      // handle stream ending by user (clicking "Stop sharing" in browser)
-      stream.getVideoTracks()[0].onended = () => {
-        if (recorder.state !== "inactive") {
-          recorder.requestData();
-          recorder.stop();
-        }
+        // stop stream cloud in background — don't await so it can't block
         call.stopRecording().catch(console.error);
         setIsRecording(false);
-        setMediaRecorder(null);
-      };
 
-      recorder.start(1000);
-      setMediaRecorder(recorder);
+      } else {
 
-      // start stream cloud recording in background — don't block on it
-      call.startRecording().catch(console.error);
-      setIsRecording(true);
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { mediaSource: "screen" },
+          audio: true,
+        });
+
+
+        const chunks = [];
+
+        // try webm first, fallback to mp4
+        const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+          ? "video/webm;codecs=vp9"
+          : MediaRecorder.isTypeSupported("video/webm")
+            ? "video/webm"
+            : "video/mp4";
+
+        const recorder = new MediaRecorder(stream, { mimeType });
+
+        recorder.ondataavailable = (e) => {
+          if (e.data?.size > 0) chunks.push(e.data);
+        };
+
+        recorder.onstop = () => {
+          if (chunks.length === 0) {
+            return;
+          }
+          const blob = new Blob(chunks, { type: mimeType });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `session-${sessionId}-${Date.now()}.webm`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          stream.getTracks().forEach((t) => t.stop());
+        };
+
+        // handle stream ending by user (clicking "Stop sharing" in browser)
+        stream.getVideoTracks()[0].onended = () => {
+          if (recorder.state !== "inactive") {
+            recorder.requestData();
+            recorder.stop();
+          }
+          call.stopRecording().catch(console.error);
+          setIsRecording(false);
+          setMediaRecorder(null);
+        };
+
+        recorder.start(1000);
+        setMediaRecorder(recorder);
+
+        // start stream cloud recording in background — don't block on it
+        call.startRecording().catch(console.error);
+        setIsRecording(true);
+      }
+    } catch (err) {
+      console.error("❌ Recording error:", err);
+      alert(`❌ Recording failed: ${err.message}`);
     }
-  } catch (err) {
-    console.error("❌ Recording error:", err);
-    alert(`❌ Recording failed: ${err.message}`);
-  }
-};
+  };
 
   const handleLeave = async () => {
     if (isHR) {
@@ -258,9 +258,8 @@ const handleRecording = async () => {
         if (channel) {
           const participant = participantsData.find((p) => p.id === participantId);
           await channel.sendMessage({
-            text: `🔓 HR ${action ? "granted" : "revoked"} tab switching permission for ${
-              participant?.name || "a participant"
-            }.`,
+            text: `🔓 HR ${action ? "granted" : "revoked"} tab switching permission for ${participant?.name || "a participant"
+              }.`,
           });
         }
 
@@ -326,8 +325,8 @@ const handleRecording = async () => {
           <div className="flex items-center gap-2">
             <UsersIcon className="w-5 h-5 text-primary" />
             <span className="font-semibold">
-              {participantCount}{" "}
-              {participantCount === 1 ? "participant" : "participants"}
+              {videoParticipants.length}{" "}
+              {videoParticipants.length === 1 ? "participant" : "participants"}
             </span>
 
             {isRecording && (
@@ -339,9 +338,8 @@ const handleRecording = async () => {
 
             {!isHR && (
               <div
-                className={`badge ${
-                  hasTabSwitchPermission ? "badge-success" : "badge-warning"
-                } badge-sm`}
+                className={`badge ${hasTabSwitchPermission ? "badge-success" : "badge-warning"
+                  } badge-sm`}
               >
                 {hasTabSwitchPermission ? "Tab Access Allowed" : "Tab Access Restricted"}
               </div>
@@ -352,9 +350,8 @@ const handleRecording = async () => {
             {isHR && (
               <button
                 onClick={() => setIsManagingPermissions(!isManagingPermissions)}
-                className={`btn btn-sm gap-2 ${
-                  isManagingPermissions ? "btn-warning" : "btn-info"
-                }`}
+                className={`btn btn-sm gap-2 ${isManagingPermissions ? "btn-warning" : "btn-info"
+                  }`}
               >
                 <ShieldIcon className="size-4" />
                 {isManagingPermissions ? "Managing Permissions" : "HR Controls"}
@@ -474,9 +471,8 @@ const handleRecording = async () => {
 
                       <div className="flex items-center gap-2">
                         <div
-                          className={`badge badge-sm ${
-                            participant.tabSwitchAllowed ? "badge-success" : "badge-warning"
-                          }`}
+                          className={`badge badge-sm ${participant.tabSwitchAllowed ? "badge-success" : "badge-warning"
+                            }`}
                         >
                           {participant.tabSwitchAllowed ? "Allowed" : "Restricted"}
                         </div>
@@ -541,33 +537,31 @@ const handleRecording = async () => {
         {/* BOTTOM CONTROLS */}
         <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center items-center gap-3">
           <div className="flex items-center gap-2">
-  <ToggleAudioPublishingButton />
-  <ToggleVideoPublishingButton />
-  <ScreenShareButton />
-  <SpeakingWhileMutedNotification />
-  <CancelCallButton onLeave={handleLeave} />
-</div>
+            <ToggleAudioPublishingButton />
+            <ToggleVideoPublishingButton />
+            <ScreenShareButton />
+            <SpeakingWhileMutedNotification />
+            <CancelCallButton onLeave={handleLeave} />
+          </div>
 
-  {(isHR || isAdmin) && !roleLoading && (
-  <button
-    onClick={handleRecording}
-    className={`btn btn-sm gap-2 ${
-      isRecording ? "btn-error animate-pulse" : "btn-ghost border border-base-300"
-    }`}
-  >
-    <span className={`w-3 h-3 rounded-full ${isRecording ? "bg-white" : "bg-error"}`} />
-    {isRecording ? "Stop" : "Record"}
-  </button>
-)}
+          {(isHR || isAdmin) && !roleLoading && (
+            <button
+              onClick={handleRecording}
+              className={`btn btn-sm gap-2 ${isRecording ? "btn-error animate-pulse" : "btn-ghost border border-base-300"
+                }`}
+            >
+              <span className={`w-3 h-3 rounded-full ${isRecording ? "bg-white" : "bg-error"}`} />
+              {isRecording ? "Stop" : "Record"}
+            </button>
+          )}
         </div>
       </div>
 
       {/* CHAT PANEL */}
       {chatClient && channel && (
         <div
-          className={`flex flex-col rounded-lg shadow overflow-hidden bg-[#272a30] transition-all duration-300 ease-in-out ${
-            isChatOpen ? "w-80 opacity-100" : "w-0 opacity-0"
-          }`}
+          className={`flex flex-col rounded-lg shadow overflow-hidden bg-[#272a30] transition-all duration-300 ease-in-out ${isChatOpen ? "w-80 opacity-100" : "w-0 opacity-0"
+            }`}
         >
           {isChatOpen && (
             <>
