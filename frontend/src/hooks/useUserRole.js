@@ -6,12 +6,13 @@ export const useUserRole = () => {
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const { getToken } = useAuth();
-
+  
+  const API_URL = import.meta.env.VITE_API_BASE_URL;
 const fetchUserRole = useCallback(async () => {
   if (!user) { setLoading(false); return; }
   try {
     const token = await getToken(); // ✅ get Clerk JWT token
-    const response = await fetch("https://talent-talk.onrender.com/api/user/role", {
+    const response = await fetch(`${API_URL}/user/role`, {
       headers: {
         Authorization: `Bearer ${token}` // ✅ send it
       },

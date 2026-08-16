@@ -15,14 +15,14 @@ function AdminDashboard() {
   
 
   // Use the correct API URL with port 4000
-  const API_URL = "https://talent-talk.onrender.com";
+  const API_URL = import.meta.env.VITE_API_BASE_URL;
 
   // Fetch all users
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const token = await getToken();
-const response = await fetch(`${API_URL}/api/admin/users`, {
+const response = await fetch(`${API_URL}/admin/users`, {
   headers: {
     Authorization: `Bearer ${token}`
   },
@@ -56,7 +56,7 @@ const response = await fetch(`${API_URL}/api/admin/users`, {
     setUpdatingUser(userId);
     try {
       const token = await getToken();
-const response = await fetch(`${API_URL}/api/admin/users/${userId}/role`, {
+const response = await fetch(`${API_URL}/admin/users/${userId}/role`, {
   method: "PATCH",
   headers: {
     "Content-Type": "application/json",

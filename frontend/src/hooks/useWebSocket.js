@@ -36,7 +36,7 @@ export function useWebSocket(sessionId, onNotification) {
     });
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const backendHost = 'talent-talk.onrender.com';
+    const backendHost = import.meta.env.VITE_API_BASE_URL.replace(/^https?:\/\//, '');
     const wsUrl = `${protocol}//${backendHost}/ws?sessionId=${sessionId}&userId=${user.id}&role=${currentRole}`;
 
     console.log('🔗 Attempting WebSocket connection to:', wsUrl);
