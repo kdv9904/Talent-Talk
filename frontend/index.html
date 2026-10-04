@@ -2,12 +2,41 @@
 <html lang="en" data-theme="forest">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Talent-Talk</title>
+
+    <!-- SEO -->
+    <title>Talent-Talk – Collaborative Coding Interviews &amp; Pair Programming Platform</title>
+    <meta
+      name="description"
+      content="Talent-Talk is a real-time platform for coding interviews and pair programming, with live video chat, a collaborative code editor and multi-language support."
+    />
+    <meta name="theme-color" content="#171212" />
+
+    <!-- Favicon (your file is a PNG, so the type is image/png) -->
+    <link rel="icon" type="image/png" href="/logo.png" />
+
+    <!-- Social link previews (WhatsApp, LinkedIn, etc. don't read AVIF, so use the PNG) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Talent-Talk – Code Together, Learn Together" />
+    <meta
+      property="og:description"
+      content="Collaborative coding interviews and pair programming with live video and a real-time code editor."
+    />
+    <meta property="og:image" content="https://talent-talk-pro.vercel.app/hero.png" />
+    <meta property="og:url" content="https://talent-talk-pro.vercel.app/" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Performance: start downloading the hero image (LCP) immediately -->
+    <link rel="preload" as="image" href="/hero.avif" type="image/avif" fetchpriority="high" />
+
+    <!-- Avoids a white flash before the app and theme CSS load -->
+    <style>
+      html { background: #171212; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>Talent-Talk needs JavaScript enabled to run.</noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
